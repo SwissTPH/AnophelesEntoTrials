@@ -1,0 +1,29 @@
+Package: AnophelesEntoTrials
+Title: Estimate the Impact of Malaria Vector Control Interventions Based on Entomological Data
+Version: 0.1.0
+Authors@R:
+    person("Myroslava", "Volosko", , "myroslava.volosko@swisstph.ch", role = c("aut", "cre"))
+Description: The AnophelesEntoTrials R package provides a platform to estimate
+    the impact of malaria vector control interventions based on entomological
+    data using MCMC models. It supports fitting Bayesian models to
+    Entomological Hut Trial (EHT) data to estimate intervention efficacy
+    parameters including repellency, pre-prandial killing, and post-prandial
+    killing.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    cli,
+    dplyr,
+    readr,
+    readxl,
+    rstan,
+    tibble,
+    tools
+Suggests:
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr

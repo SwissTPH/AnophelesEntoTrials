@@ -1,0 +1,388 @@
+---
+title: "Workflow: Using Predefined Models"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Workflow: Using Predefined Models}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+This vignette demonstrates the complete workflow for analyzing entomological trials data using Bayesian models in the `AnophelesEntoTrials` package.
+
+## Overview
+
+(for more details about parameters and model details, see below)
+The package provides three predefined Stan models for different experimental designs:
+
+1. **Basic model** (`"basic"`): Standard multinomial model for typical EHT data
+2. **Hierarchical decay model** (`"hierarchical_decay"`): For longitudinal data with temporal decay
+3. **Semifield model** (`"semifield"`): For semifield experiments with time-to-event outcomes
+
+## Step 1: Load the Package
+
+```{r load-package}
+library(AnophelesEntoTrials)
+
+# See available models
+list_available_models()
+```
+
+## Step 2: Prepare Your Data
+
+### Data Requirements
+
+Each model has specific data requirements. Check what's needed:
+```{r check-requirements}
+# View model details including required columns
+models_info <- list_available_models(details = TRUE)
+print(models_info)
+```
+
+### Basic Model Data Format
+
+The basic model requires:
+- `UA`: Unfed Alive count
+- `UD`: Unfed Dead count
+- `FA`: Fed Alive count
+- `FD`: Fed Dead count
+- `treatment`: Treatment indicator (0 = control, 1+ = treatments)
+
+```{r prepare-basic-data}
+# Example: Import data from CSV
+eht_data <- import_ento_data("path/to/your/data.csv")
+# Or define your required columns
+eht_data_treat <- import_ento_data("path/to/your/data.csv",
+                                   required_vars = c("deadfed", "alivefed", "alive"),
+                                   treatment_var = "Intervention")
+
+# ------------- Simulated data example ----------
+# ------------- Use it for testing purposes -----
+set.seed(42)
+
+# True parameters for simulation
+mu_0 <- 0.14      # baseline mortality rate
+alpha_0 <- 0.15   # baseline attack rate
+pB_0 <- 0.92      # baseline survival probability post-feeding (blood-meal survival)
+
+# Treatment effects
+pi <- 0.69        # repellency (69% deterrent effect)
+kappa <- 3.8      # pre-prandial killing multiplier
+xi <- 0.52        # post-prandial killing (52% killed after feeding)
+
+# Probability function for mosquito outcomes
+return_proba <- function(alpha, mu, pc) {
+  c(
+    exp(-alpha - mu),                                    # UA: unfed alive
+    (1 - exp(-alpha - mu)) * mu / (alpha + mu),          # UD: unfed dead
+    (1 - exp(-alpha - mu)) * alpha / (alpha + mu) * pc,  # FA: fed alive
+    (1 - exp(-alpha - mu)) * alpha / (alpha + mu) * (1 - pc)  # FD: fed dead
+  )
+}
+
+# Calculate probabilities for control and treatment
+proba_control <- return_proba(alpha_0, mu_0, pB_0)
+proba_treatment <- return_proba(
+  alpha_0 * (1 - pi),           # reduced attack rate due to repellency
+  mu_0 + alpha_0 * kappa,       # increased mortality
+  pB_0 * (1 - xi)               # reduced survival post-feeding
+)
+
+# Generate simulated data
+n_samples <- 100
+
+sample_control <- data.frame(t(rmultinom(n_samples, 10, proba_control)))
+sample_treatment <- data.frame(t(rmultinom(n_samples, 10, proba_treatment)))
+
+# Combine into dataset
+simulated_data <- rbind(
+  data.frame(sample_control, treatment = 0, insecticide_name = "Control"),
+  data.frame(sample_treatment, treatment = 1, insecticide_name = "NewITN")
+)
+names(simulated_data)[1:4] <- c("UA", "UD", "FA", "FD")
+
+# Format the data (adds derived columns)
+eht_data <- format_eht_data(simulated_data)
+head(eht_data)
+```
+
+## Step 3: Fit the Model
+
+### Basic Model
+
+```{r fit-basic-model}
+# Fit with default settings
+fit_basic <- fit_ento_model(
+  data = eht_data,
+  model_type = "basic",
+  iter = 6000,
+  warmup = 3000,
+  chains = 3,
+  seed = 123
+)
+
+# Or with adjusted MCMC settings for better convergence
+fit_basic <- fit_ento_model(
+  data = eht_data,
+  model_type = "basic",
+  iter = 10000,
+  warmup = 5000,
+  chains = 4,
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
+  seed = 123
+)
+```
+
+### Hierarchical Decay Model
+
+For longitudinal data with temporal decay effects:
+
+```{r fit-decay-model}
+# Prepare longitudinal data (requires additional columns)
+longitudinal_data <- data.frame(
+  UA = sample(10:50, 200, replace = TRUE),
+  UD = sample(0:10, 200, replace = TRUE),
+  FA = sample(5:30, 200, replace = TRUE),
+  FD = sample(0:5, 200, replace = TRUE),
+  treatment = rep(c(0, 1), each = 100),
+  day = rep(1:10, 20),        # Day index (1 to D)
+  datej = rep(1:100, 2),      # Days since treatment start
+  fed = NA,                    # Will be calculated
+  total = NA                   # Will be calculated
+)
+longitudinal_data$fed <- longitudinal_data$FA + longitudinal_data$FD
+longitudinal_data$total <- rowSums(longitudinal_data[, c("UA", "UD", "FA", "FD")])
+
+# Fit hierarchical decay model
+fit_decay <- fit_ento_model(
+  data = longitudinal_data,
+  model_type = "hierarchical_decay",
+  iter = 8000,
+  warmup = 4000,
+  chains = 3,
+  prior_settings = list(
+    priorsigma_mean_logrates = 6,
+    hierarchy = 1
+  ),
+  seed = 123
+)
+```
+
+## Step 4: Extract and Interpret Results
+
+### Summary Statistics
+
+```{r extract-summary}
+# Extract posterior summaries with 95% credible intervals
+summary_results <- extract_stan_summary(
+  fit_basic,
+  data = eht_data,
+  probs = c(0.025, 0.975)
+)
+
+print(summary_results)
+```
+
+### Maximum A Posteriori (MAP) Estimates
+
+```{r extract-map}
+# Get MAP estimates (single best estimate)
+map_estimates <- extract_map_estimates(fit_basic, data = eht_data)
+print(map_estimates)
+```
+
+### Full Posterior Samples
+
+```{r extract-posteriors}
+# Extract subset of posterior samples for further analysis
+posterior_samples <- extract_stan_posteriors(
+  fit_basic,
+  data = eht_data,
+  n_samples = 500  # Random subset of 500 samples
+)
+
+# Visualize posterior distribution
+library(ggplot2)
+
+ggplot(posterior_samples, aes(x = value, fill = param)) +
+geom_density(alpha = 0.5) +
+  facet_wrap(~ param, scales = "free") +
+  theme_minimal() +
+  labs(title = "Posterior Distributions of Intervention Effects")
+```
+
+## Step 5: Save and Load Results
+
+```{r save-results}
+# Save during fitting
+fit <- fit_ento_model(
+  data = eht_data,
+  model_type = "basic",
+  output_path = "results/my_fit.rds"
+)
+
+# Or save manually
+saveRDS(fit_basic, "results/fit_basic.rds")
+
+# Load later
+fit_loaded <- readRDS("results/fit_basic.rds")
+```
+
+## Interpreting Parameters
+
+The basic model estimates the following intervention parameters:
+
+| Parameter | Symbol | Interpretation | Range |
+|-----------|--------|----------------|-------|
+| InitialRepellencyRate | π | Proportion of mosquitoes deterred from entering | 0-1 |
+| KillingDuringHostSeeking | κ | Additional mortality during approach (multiplier) | ≥0 |
+| InitialPostprandialkillingEfficacy | ξ | Proportion killed after blood-feeding | 0-1 |
+| InitialPreprandialkillingEfficacy | - | Derived: overall pre-feeding killing | 0-1 |
+
+Baseline parameters:
+- `alpha_0`: Baseline attack rate (exp(a) in Stan)
+- `mu_0`: Baseline mortality rate (exp(m) in Stan)
+- `pB_0`: Baseline probability of surviving blood-feeding (inv_logit(b) in Stan)
+
+## Understanding Parameter Initialization
+
+MCMC sampling requires starting values (initial values) for all parameters. The package provides automatic initialization, but understanding how it works helps with troubleshooting and customization.
+
+### How Initialization Works
+
+When you call `fit_ento_model()` with `init = "auto"` (the default), the package:
+
+1. **Creates an init function** using `generate_inits_basic()`, `generate_inits_decay()`, or `generate_inits_semifield()` depending on your model type
+2. **Stan calls this function once per chain** to get different starting points
+3. **Each chain starts from a different random location** in parameter space
+
+```{r init-example}
+# See what the init function produces
+library(AnophelesEntoTrials)
+
+# Create init function for 2 treatment groups (control + 1 intervention)
+init_fn <- generate_inits_basic(nb_treat = 2)
+
+# Call it to see one set of initial values
+init_fn()
+```
+
+### Why Multiple Chains with Different Inits?
+
+Different chains starting from different points should converge to the same posterior distribution if:
+- The model is well-specified
+- There's enough data
+- The sampler has run long enough
+
+If chains don't converge (Rhat > 1.1), it may indicate:
+- Insufficient iterations
+- Model identifiability issues
+- Need for better initialization
+
+### Customizing Initialization
+
+You can provide your own init function for more control:
+
+```{r custom-init}
+# Custom init function with specific starting values
+my_inits <- function() {
+  list(
+    InitialPostprandialkillingEfficacy = c(0.1, 0.5),  # control, treatment
+    KillingDuringHostSeeking = c(0.1, 0.5),
+    InitialRepellencyRate = c(0.1, 0.5),
+    a = -2,  # log(alpha_0) ≈ log(0.14) = -2
+    m = -2,  # log(mu_0) ≈ log(0.14) = -2
+    b = 2    # logit(pB_0) ≈ logit(0.88) = 2
+  )
+}
+
+# Use custom inits
+fit <- fit_ento_model(
+  data = eht_data,
+  model_type = "basic",
+  init = my_inits
+)
+```
+
+### Parameter Scales in Stan
+
+The Stan models use transformed scales for baseline parameters:
+
+| R Parameter | Stan Parameter | Transformation | Typical Range |
+|-------------|----------------|----------------|---------------|
+| `alpha_0` | `a` | `alpha_0 = exp(a)` | a ∈ (-4, 0) |
+| `mu_0` | `m` | `mu_0 = exp(m)` | m ∈ (-4, 0) |
+| `pB_0` | `b` | `pB_0 = inv_logit(b)` | b ∈ (-2, 4) |
+
+When providing custom inits, specify values on the **transformed scale** (a, m, b) not the natural scale.
+
+## Comparing Multiple Treatments
+
+When you have multiple treatments in your data:
+
+```{r multiple-treatments}
+# Data with multiple treatments
+multi_treatment_data <- data.frame(
+  UA = c(rep(30, 50), rep(25, 50), rep(20, 50)),
+  UD = c(rep(5, 50), rep(8, 50), rep(12, 50)),
+  FA = c(rep(15, 50), rep(12, 50), rep(8, 50)),
+  FD = c(rep(2, 50), rep(5, 50), rep(8, 50)),
+  treatment = rep(c(0, 1, 2), each = 50),
+  insecticide_name = rep(c("Control", "Standard_ITN", "New_ITN"), each = 50)
+)
+
+multi_treatment_data <- format_eht_data(multi_treatment_data)
+
+# Fit model
+fit_multi <- fit_ento_model(
+  data = multi_treatment_data,
+  model_type = "basic"
+)
+
+# Compare treatments
+summary_multi <- extract_stan_summary(fit_multi, data = multi_treatment_data)
+print(summary_multi)
+```
+
+## Troubleshooting
+
+### Divergent Transitions
+
+If you see warnings about divergent transitions:
+
+```{r troubleshoot-divergent}
+# Increase adapt_delta
+fit <- fit_ento_model(
+  data = eht_data,
+  model_type = "basic",
+  control = list(adapt_delta = 0.99, max_treedepth = 15)
+)
+```
+
+### Slow Convergence
+
+If Rhat values are > 1.1:
+
+```{r troubleshoot-convergence}
+# Increase iterations and chains
+fit <- fit_ento_model(
+  data = eht_data,
+  model_type = "basic",
+  iter = 20000,
+  warmup = 10000,
+  chains = 4
+)
+```
+
+## Next Steps
+
+- See `vignette("workflow-custom-models")` for using custom Stan models
+- See `?extract_stan_summary` for more extraction options
+- See `?list_available_models` for model details
