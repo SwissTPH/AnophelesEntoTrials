@@ -190,12 +190,12 @@ summary_results <- extract_stan_summary(
 print(summary_results)
 ```
 
-### Maximum A Posteriori (MAP) Estimates
+### posteriorMax Estimates
 
 ```{r extract-map}
-# Get MAP estimates (single best estimate)
-map_estimates <- extract_map_estimates(fit_basic, data = eht_data)
-print(map_estimates)
+# Get posteriorMax estimates (single best estimate)
+posteriorMax <- extract_posteriorMax(fit_basic, data = eht_data)
+print(posteriorMax)
 ```
 
 ### Full Posterior Samples

@@ -9,7 +9,7 @@ create_test_model_data <- function(n = 20) {
     FA = sample(5:30, n, replace = TRUE),
     FD = sample(0:5, n, replace = TRUE),
     treatment = rep(c(0, 1), each = n/2),
-    insecticide_name = rep(c("Control", "Treatment_A"), each = n/2),
+    vector_control_product = rep(c("Control", "Treatment_A"), each = n/2),
     stringsAsFactors = FALSE
   )
 }
@@ -256,8 +256,8 @@ test_that("full workflow with simulated data works", {
   sample_i <- t(rmultinom(n_samples, 10, proba_i))
 
   simulated_data <- rbind(
-    data.frame(sample_control, treatment = 0, insecticide_name = "control"),
-    data.frame(sample_i, treatment = 1, insecticide_name = "newITN")
+    data.frame(sample_control, treatment = 0, vector_control_product = "control"),
+    data.frame(sample_i, treatment = 1, vector_control_product = "newITN")
   )
   names(simulated_data)[1:4] <- c("UA", "UD", "FA", "FD")
   simulated_data$fed <- simulated_data$FA + simulated_data$FD

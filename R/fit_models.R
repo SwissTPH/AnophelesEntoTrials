@@ -856,10 +856,10 @@ check_stan_warnings <- function(stan_fit, verbose = TRUE) {
 #' Extract summary statistics from Stan fit
 #'
 #' Extracts parameter summaries (mean, credible intervals) from a fitted Stan model.
-#' Joins with treatment labels if data with insecticide_name is provided.
+#' Joins with treatment labels if data with vector_control_product is provided.
 #'
 #' @param stan_fit A stanfit object from \code{fit_ento_model}.
-#' @param data Optional. Original data frame with insecticide_name and treatment
+#' @param data Optional. Original data frame with vector_control_product and treatment
 #'   columns for labeling.
 #' @param pars Character vector. Parameters to extract. If NULL, uses default
 #'   intervention parameters.
@@ -874,7 +874,7 @@ check_stan_warnings <- function(stan_fit, verbose = TRUE) {
 #'     \item mean: Posterior mean
 #'     \item lower: Lower credible interval bound
 #'     \item upper: Upper credible interval bound
-#'     \item insecticide_name: Treatment label (if data provided)
+#'     \item vector_control_product: Treatment label (if data provided)
 #'   }
 #'
 #' @examples
@@ -951,10 +951,10 @@ extract_stan_summary <- function(stan_fit,
       upper = round(upper, digits)
     )
 
-  # Join with insecticide names if data provided
+  # Join with vector control product names if data provided
 
-  if (!is.null(data) && "insecticide_name" %in% names(data)) {
-    treatment_labels <- unique(data[, c("insecticide_name", "treatment")])
+  if (!is.null(data) && "vector_control_product" %in% names(data)) {
+    treatment_labels <- unique(data[, c("vector_control_product", "treatment")])
     treatment_labels <- treatment_labels[treatment_labels$treatment > 0, ]
 
     result <- result %>%
@@ -970,7 +970,7 @@ extract_stan_summary <- function(stan_fit,
 #' from a fitted Stan model.
 #'
 #' @param stan_fit A stanfit object from \code{fit_ento_model}.
-#' @param data Optional. Original data frame with insecticide_name and treatment
+#' @param data Optional. Original data frame with vector_control_product and treatment
 #'   columns for labeling.
 #' @param pars Character vector. Parameters to extract. If NULL, uses default
 #'   intervention parameters.
@@ -985,7 +985,7 @@ extract_stan_summary <- function(stan_fit,
 #'     \item param: Parameter name
 #'     \item treatment: Treatment index
 #'     \item value: Parameter value
-#'     \item insecticide_name: Treatment label (if data provided)
+#'     \item vector_control_product: Treatment label (if data provided)
 #'   }
 #'
 #' @examples
@@ -1083,9 +1083,9 @@ extract_stan_posteriors <- function(stan_fit,
   result <- result %>%
     dplyr::filter(treatment > 0)
 
-  # Join with insecticide names if data provided
-  if (!is.null(data) && "insecticide_name" %in% names(data)) {
-    treatment_labels <- unique(data[, c("insecticide_name", "treatment")])
+  # Join with vector control product names if data provided
+  if (!is.null(data) && "vector_control_product" %in% names(data)) {
+    treatment_labels <- unique(data[, c("vector_control_product", "treatment")])
     treatment_labels <- treatment_labels[treatment_labels$treatment > 0, ]
 
     result <- result %>%
@@ -1095,23 +1095,23 @@ extract_stan_posteriors <- function(stan_fit,
   return(tibble::as_tibble(result))
 }
 
-#' Extract MAP (Maximum A Posteriori) estimates
+#' Extract posteriorMax estimates
 #'
-#' Convenience function to extract only the MAP estimate from a fitted model.
+#' Convenience function to extract only the posteriorMax estimate from a fitted model.
 #' This is the posterior sample with the highest log-posterior density.
 #'
 #' @param stan_fit A stanfit object from \code{fit_ento_model}.
 #' @param data Optional. Original data frame for treatment labels.
 #' @param pars Character vector. Parameters to extract.
 #'
-#' @return A tibble with MAP estimates for each parameter and treatment.
+#' @return A tibble with posteriorMax estimates for each parameter and treatment.
 #'
 #' @examples
 #' \dontrun{
-#' map_estimates <- extract_map_estimates(fit, data = original_data)
+#' posteriorMax <- extract_posteriorMax(fit, data = original_data)
 #' }
 #'
 #' @export
-extract_map_estimates <- function(stan_fit, data = NULL, pars = NULL) {
+extract_posteriorMax <- function(stan_fit, data = NULL, pars = NULL) {
   extract_stan_posteriors(stan_fit, data = data, pars = pars, map_only = TRUE)
 }

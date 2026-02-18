@@ -262,7 +262,7 @@ format_varnames <- function(names) {
 #'   \item Fed alive: FA, fedalive, F.alive, f_alive, fed_alive, etc.
 #'   \item Fed dead: FD, feddead, F.dead, f_dead, fed_dead, etc.
 #'   \item treatment: treatment, treat, nettype, treatment_type
-#'   \item insecticide_name: insecticide_name, insecticide, net_type, ingredient, lntype
+#'   \item vector_control_product: vector_control_product, insecticide, net_type, ingredient, lntype
 #'   \item wash_status: wash_status, washed, condition, wash
 #' }
 #'
@@ -299,9 +299,9 @@ standardize_column_names <- function(data, mapping = NULL) {
            "gafeddead24", "gafeddead72"),
     # Treatment variations
     treatment = c("treatment", "treat", "nettype", "treatment_type"),
-    # Insecticide name variations
-    insecticide_name = c("insecticide_name", "insecticide", "net_type",
-                         "treatment_name", "ingredient", "lntype"),
+    # Vector control product name variations
+    vector_control_product = c("vector_control_product", "insecticide_name", "insecticide", "net_type",
+                               "treatment_name", "ingredient", "lntype"),
     # Wash status variations
     wash_status = c("wash_status", "washed", "condition", "wash")
   )
@@ -349,7 +349,7 @@ standardize_column_names <- function(data, mapping = NULL) {
 #'   \itemize{
 #'     \item Endpoints (UA, UD, FA, FD) as numeric
 #'     \item treatment as integer (0 = control, 1+ = treatments)
-#'     \item insecticide_name as character (if present)
+#'     \item vector_control_product as character (if present)
 #'     \item Derived variables: fed, dead, total (if calculate_derived = TRUE)
 #'   }
 #'

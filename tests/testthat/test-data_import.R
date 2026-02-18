@@ -79,7 +79,7 @@ test_that("standardize_column_names handles treatment_name column", {
   )
 
   result <- standardize_column_names(data)
-  expect_true("insecticide_name" %in% names(result))
+  expect_true("vector_control_product" %in% names(result))
 })
 
 test_that("standardize_column_names handles custom mapping", {
@@ -135,7 +135,7 @@ test_that("format_eht_data calculates derived columns correctly", {
   )
 
   result <- format_eht_data(data)
-
+#
   expect_equal(result$fed, c(6, 12))    # FA + FD
 expected_dead <- c(3, 6)   # UD + FD
   expect_equal(result$dead, expected_dead)
