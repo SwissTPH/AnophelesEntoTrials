@@ -1,0 +1,136 @@
+---
+title: "Formatting entomological data with format_eht_data()"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Formatting entomological data with format_eht_data()}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r load-package}
+library(AnophelesEntoTrials)
+```
+
+## Formatting of entomological data
+
+Entomological hut trial (EHT) data often comes from various sources with inconsistent naming. Different teams may use:
+
+- Different column names for the same variables (e.g., `UnfedAlive`, `UF.alive`, `u_alive`, `UA`)
+- Different cases (e.g., `Treatment`, `treatment`, `TREATMENT`)
+- Different treatment encodings (e.g., character labels vs. numeric codes)
+
+The `format_eht_data()` function standartizes this data inconsistencies.
+
+## What does format_eht_data() function do?
+
+1. **Standardizes column names**: Maps common variations to standard names (UA, UD, FA, FD, treatment, etc.)
+2. **Coerces data types**: Converts endpoints to numeric
+3. **Encodes treatments**: Converts treatment labels to numeric encoding (0 = control, 1+ = treatments)
+4. **Calculates variables**: Adds `fed`, `dead`, and `total` columns
+
+## Example
+
+```{r create-bad-data}
+# A messy dataset with inconsistent naming conventions
+messy_data <- data.frame(
+  # Different naming for endpoints
+  unfedalive = c(25, 30, 22, 28, 35, 15, 18, 12, 20, 14),
+  UF.dead    = c(3, 2, 4, 3, 2, 8, 10, 12, 9, 11),
+  fed_alive  = c(18, 15, 20, 17, 12, 10, 8, 6, 9, 7),
+  F.dead     = c(2, 1, 3, 2, 1, 7, 9, 10, 8, 8),
+
+  # Treatment as character with various labels
+  nettype = c("Control", "Control", "Control", "Control", "Control",
+              "IG2", "IG2", "IG2", "IG2", "IG2"),
+
+  # Additional metadata
+  hut_id = c(1, 2, 3, 4, 5, 1, 2, 3, 4, 5),
+  night = c(1, 1, 1, 1, 1, 2, 2, 2, 2, 2)
+)
+
+print(messy_data)
+str(messy_data)
+```
+Now let's format this data:
+
+```{r format-data}
+# Apply format_eht_data()
+clean_data <- format_eht_data(messy_data, control_value = "Control")
+
+print(clean_data)
+str(clean_data)
+```
+
+## Handling Different Naming Conventions
+
+The `standardize_column_names()` function (called internally) recognizes many common variations:
+
+| Standard Name | Recognized Variations |
+|--------------|----------------------|
+| UA | `unfedalive`, `UF.alive`, `u_alive`, `unfed_alive`, `gaufalive24` |
+| UD | `unfeddead`, `UF.dead`, `u_dead`, `unfed_dead`, `gaufdead24` |
+| FA | `fedalive`, `F.alive`, `f_alive`, `fed_alive`, `gafedalive24` |
+| FD | `feddead`, `F.dead`, `f_dead`, `fed_dead`, `gafeddead24` |
+| treatment | `treat`, `nettype`, `treatment_type` |
+| vector_control_product | `insecticide_name`, `insecticide`, `net_type`, `lntype` |
+| wash_status | `washed`, `condition`, `wash` |
+
+## Specifying the control group
+
+By default, `format_eht_data()` attempts to auto-detect the control group by looking for:
+1. A treatment value of `0`
+2. A treatment label containing "control" (case-insensitive)
+
+If neither is found, it uses the first unique value and issues a warning. You can explicitly specify the control:
+
+```{r specify-control}
+# Data with non-obvious control labeling
+data_odd_labels <- data.frame(
+  UA = c(30, 28, 15, 12),
+  UD = c(2, 3, 10, 11),
+  FA = c(15, 17, 8, 6),
+  FD = c(1, 2, 9, 10),
+  treatment = c("Untreated_Net", "Untreated_Net", "PBO_Net", "PBO_Net")
+)
+
+# Explicitly specify control
+formatted <- format_eht_data(data_odd_labels, control_value = "Untreated_Net")
+print(formatted[, c("treatment", "UA", "UD", "FA", "FD")])
+```
+
+## Skipping Derived Variables
+
+If you don't need the derived variables (`fed`, `dead`, `total`), you can skip their calculation:
+
+```{r skip-derived}
+minimal_format <- format_eht_data(messy_data,
+                                   calculate_derived = FALSE,
+                                   control_value = "Control")
+names(minimal_format)
+```
+
+## Integration with the analysis pipeline
+
+```{r pipeline-example, eval = FALSE}
+# 1. Import raw data
+raw_data <- import_ento_data("my_trial_data.csv")
+
+# 2. Format the data
+formatted_data <- format_eht_data(raw_data, control_value = "Control")
+
+# 3. Fit the model
+fit <- fit_ento_model(
+  data = formatted_data,
+  model_type = "basic",
+  iter = 6000,
+  warmup = 3000,
+  chains = 3
+)
+```
