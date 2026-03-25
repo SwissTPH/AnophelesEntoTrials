@@ -101,17 +101,19 @@ model{
 
     if (treat[i]==0) {
     pB[i]   = control_prob_surviving_feeding[day[i]];
-    theta[1,i] = (P_A(alpha_H_k0[day[i]], mu_k0[day[i]]))';
-    theta[2,i] = (P_F(alpha_H_k0[day[i]], mu_k0[day[i]]))';
-    theta[3,i] = (P_M(alpha_H_k0[day[i]], mu_k0[day[i]]))';
+    #' removed for all theta
+    theta[1,i] = (P_A(alpha_H_k0[day[i]], mu_k0[day[i]]));
+    theta[2,i] = (P_F(alpha_H_k0[day[i]], mu_k0[day[i]]));
+    theta[3,i] = (P_M(alpha_H_k0[day[i]], mu_k0[day[i]]));
 
     }
     else{
    decay= exp(-(beta[treat[i]+1]*datej[i])^kappa[treat[i]+1]);
     pB[i]   = control_prob_surviving_feeding[day[i]]*(1-InitialPostprandialkillingEfficacy[treat[i]+1]*decay);
-    theta[1,i] = (P_A((1 -InitialRepellencyRate[treat[i]+1]*decay)*alpha_H_k0[day[i]], mu_k0[day[i]] + KillingDuringHostSeeking[treat[i]+1]*decay * alpha_H_k0[day[i]]))';
-    theta[2,i] = (P_F((1 -InitialRepellencyRate[treat[i]+1]*decay)*alpha_H_k0[day[i]],  mu_k0[day[i]] + KillingDuringHostSeeking[treat[i]+1]*decay * alpha_H_k0[day[i]]))';
-    theta[3,i] = (P_M((1 -InitialRepellencyRate[treat[i]+1]*decay)*alpha_H_k0[day[i]],  mu_k0[day[i]] + KillingDuringHostSeeking[treat[i]+1]*decay * alpha_H_k0[day[i]]))';
+    #' removed for all theta
+    theta[1,i] = (P_A((1 -InitialRepellencyRate[treat[i]+1]*decay)*alpha_H_k0[day[i]], mu_k0[day[i]] + KillingDuringHostSeeking[treat[i]+1]*decay * alpha_H_k0[day[i]]));
+    theta[2,i] = (P_F((1 -InitialRepellencyRate[treat[i]+1]*decay)*alpha_H_k0[day[i]],  mu_k0[day[i]] + KillingDuringHostSeeking[treat[i]+1]*decay * alpha_H_k0[day[i]]));
+    theta[3,i] = (P_M((1 -InitialRepellencyRate[treat[i]+1]*decay)*alpha_H_k0[day[i]],  mu_k0[day[i]] + KillingDuringHostSeeking[treat[i]+1]*decay * alpha_H_k0[day[i]]));
     }
   target += binomial_lpmf(FA[i] | fed[i], pB[i]);
   target += multinomial_lpmf( y[i,] |theta[,i]);
