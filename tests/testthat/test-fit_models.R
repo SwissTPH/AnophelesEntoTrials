@@ -130,16 +130,16 @@ test_that("prepare_stan_data preserves data order in y matrix", {
 })
 
 # ============================================================================
-# Tests for generate_inits()
+# Tests for generate_inits_basic()
 # ============================================================================
 
-test_that("generate_inits returns a function", {
-  init_fn <- generate_inits(2)
+test_that("generate_inits_basic returns a function", {
+  init_fn <- generate_inits_basic(2)
   expect_type(init_fn, "closure")
 })
 
 test_that("generate_inits function returns correct structure", {
-  init_fn <- generate_inits(3)
+  init_fn <- generate_inits_basic(3)
   result <- init_fn()
 
   expect_type(result, "list")
@@ -150,7 +150,7 @@ test_that("generate_inits function returns correct structure", {
 
 test_that("generate_inits creates correct length vectors", {
   nb_treat <- 3
-  init_fn <- generate_inits(nb_treat)
+  init_fn <- generate_inits_basic(nb_treat)
   result <- init_fn()
 
   expect_length(result$InitialPostprandialkillingEfficacy, nb_treat)
@@ -159,7 +159,7 @@ test_that("generate_inits creates correct length vectors", {
 })
 
 test_that("generate_inits returns values in valid range", {
-  init_fn <- generate_inits(5)
+  init_fn <- generate_inits_basic(5)
   result <- init_fn()
 
   # All efficacy/rate parameters should be between 0 and 1

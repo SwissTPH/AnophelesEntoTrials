@@ -1,11 +1,7 @@
-#' Entomological Trials Model Fitting Module
-#'
-#' Functions for Bayesian fitting of entomological trials(Ento-Trials) data using Stan.
-#' Supports custom and pre-loaded Stan models and custom parameter specification
-#'
-#' @name fit_ento_model
-#' @docType _PACKAGE
-NULL
+# Entomological Trials Model Fitting Module
+#
+# Functions for Bayesian fitting of entomological trials(Ento-Trials) data using Stan.
+# Supports custom and pre-loaded Stan models and custom parameter specification
 
 #' List available predefined Stan models
 #'
@@ -330,9 +326,8 @@ fit_ento_model <- function(data,
         init_fun <- "random"
       }
     }
-  } else if (is.function(init)) {
-    init_fun <- init
   } else {
+    # User-supplied function, list or Stan init option
     init_fun <- init
   }
 
@@ -724,13 +719,13 @@ generate_inits_basic <- function(nb_treat) {
   function() {
     list(
       # Treatment-level efficacy parameters (vectors)
-      InitialPostprandialkillingEfficacy = runif(nb_treat, 0.1, 0.9),
-      KillingDuringHostSeeking = runif(nb_treat, 0.1, 0.9),
-      InitialRepellencyRate = runif(nb_treat, 0.1, 0.9),
+      InitialPostprandialkillingEfficacy = stats::runif(nb_treat, 0.1, 0.9),
+      KillingDuringHostSeeking = stats::runif(nb_treat, 0.1, 0.9),
+      InitialRepellencyRate = stats::runif(nb_treat, 0.1, 0.9),
       # Scalar baseline parameters (log/logit scale)
-      a = rnorm(1, 0, 1),  # log(alpha_0) - baseline attack rate
-      m = rnorm(1, 0, 1),  # log(mu_0) - baseline mortality
-      b = rnorm(1, 0, 1)   # logit(pB_0) - baseline blood-feeding survival
+      a = stats::rnorm(1, 0, 1),  # log(alpha_0) - baseline attack rate
+      m = stats::rnorm(1, 0, 1),  # log(mu_0) - baseline mortality
+      b = stats::rnorm(1, 0, 1)   # logit(pB_0) - baseline blood-feeding survival
     )
   }
 }
@@ -775,24 +770,24 @@ generate_inits_decay <- function(nb_treat, nb_days = NULL) {
   function() {
     list(
       # Treatment-level efficacy parameters
-      InitialPostprandialkillingEfficacy = runif(nb_treat, 0.1, 0.9),
-      KillingDuringHostSeeking = runif(nb_treat, 0.1, 0.9),
-      InitialRepellencyRate = runif(nb_treat, 0.1, 0.9),
+      InitialPostprandialkillingEfficacy = stats::runif(nb_treat, 0.1, 0.9),
+      KillingDuringHostSeeking = stats::runif(nb_treat, 0.1, 0.9),
+      InitialRepellencyRate = stats::runif(nb_treat, 0.1, 0.9),
       # Weibull decay parameters
-      beta = runif(nb_treat, 0.001, 0.1),
-      kappa = runif(nb_treat, 0.5, 2),
+      beta = stats::runif(nb_treat, 0.001, 0.1),
+      kappa = stats::runif(nb_treat, 0.5, 2),
       # Baseline rate parameters (log/logit scale)
-      a = rnorm(1, 0, 1),
-      m = rnorm(1, 0, 1),
-      r_prob_surviving_feeding_d = rnorm(1, 0, 1),
+      a = stats::rnorm(1, 0, 1),
+      m = stats::rnorm(1, 0, 1),
+      r_prob_surviving_feeding_d = stats::rnorm(1, 0, 1),
       # Hierarchical standard deviations
-      sigma_a = abs(rnorm(1, 0, 0.5)),
-      sigma_m = abs(rnorm(1, 0, 0.5)),
-      sigma_prob_surviving_feeding_d = abs(rnorm(1, 0, 0.5)),
+      sigma_a = abs(stats::rnorm(1, 0, 0.5)),
+      sigma_m = abs(stats::rnorm(1, 0, 0.5)),
+      sigma_prob_surviving_feeding_d = abs(stats::rnorm(1, 0, 0.5)),
       # Day-level random effects (standard normal)
-      phi = rnorm(nb_days, 0, 1),
-      psi = rnorm(nb_days, 0, 1),
-      omega_prob_surviving_feeding_d = rnorm(nb_days, 0, 1)
+      phi = stats::rnorm(nb_days, 0, 1),
+      psi = stats::rnorm(nb_days, 0, 1),
+      omega_prob_surviving_feeding_d = stats::rnorm(nb_days, 0, 1)
     )
   }
 }
@@ -828,25 +823,22 @@ generate_inits_semifield <- function(n) {
   function() {
     list(
       # Effect parameter
-      rho = runif(1, 0.5, 2),
+      rho = stats::runif(1, 0.5, 2),
       # Log-scale baseline rates
-      a = rnorm(1, 0, 0.5),
-      b = rnorm(1, 0, 0.5),
-      m = rnorm(1, 0, 0.5),
+      a = stats::rnorm(1, 0, 0.5),
+      b = stats::rnorm(1, 0, 0.5),
+      m = stats::rnorm(1, 0, 0.5),
       # Hierarchical standard deviations
-      sigma_a = abs(rnorm(1, 0, 0.3)),
-      sigma_b = abs(rnorm(1, 0, 0.3)),
-      sigma_m = abs(rnorm(1, 0, 0.3)),
+      sigma_a = abs(stats::rnorm(1, 0, 0.3)),
+      sigma_b = abs(stats::rnorm(1, 0, 0.3)),
+      sigma_m = abs(stats::rnorm(1, 0, 0.3)),
       # Experiment-level random effects
-      phi = rnorm(n, 0, 1),
-      eta = rnorm(n, 0, 1),
-      psi = rnorm(n, 0, 1)
+      phi = stats::rnorm(n, 0, 1),
+      eta = stats::rnorm(n, 0, 1),
+      psi = stats::rnorm(n, 0, 1)
     )
   }
 }
-
-# Backward compatibility alias
-generate_inits <- generate_inits_basic
 
 #' Get default parameters to extract
 #'
@@ -964,17 +956,17 @@ extract_stan_summary <- function(stan_fit,
   # Pattern: paramname[index] or paramname
   summary_df <- summary_df |>
     dplyr::mutate(
-      param = gsub("\\[.*\\]", "", index),
-      treatment = as.integer(gsub(".*\\[([0-9]+)\\].*", "\\1", index))
+      param = gsub("\\[.*\\]", "", .data$index),
+      treatment = as.integer(gsub(".*\\[([0-9]+)\\].*", "\\1", .data$index))
     ) |>
     dplyr::mutate(
-      treatment = ifelse(grepl("\\[", index), treatment, NA_integer_)
+      treatment = ifelse(grepl("\\[", .data$index), .data$treatment, NA_integer_)
     )
 
   # Filter to treatment effects only (index > 1, since 1 is control)
   summary_df <- summary_df |>
-    dplyr::filter(is.na(treatment) | treatment > 1) |>
-    dplyr::mutate(treatment = treatment - 1)  # Convert to 1-indexed treatments
+    dplyr::filter(is.na(.data$treatment) | .data$treatment > 1) |>
+    dplyr::mutate(treatment = .data$treatment - 1)  # Convert to 1-indexed treatments
 
   # Select and rename columns
   lower_col <- paste0(probs[1] * 100, "%")
@@ -982,16 +974,16 @@ extract_stan_summary <- function(stan_fit,
 
   result <- summary_df |>
     dplyr::select(
-      param,
-      treatment,
-      mean = mean,
+      "param",
+      "treatment",
+      mean = "mean",
       lower = dplyr::all_of(lower_col),
       upper = dplyr::all_of(upper_col)
     ) |>
     dplyr::mutate(
-      mean = round(mean, digits),
-      lower = round(lower, digits),
-      upper = round(upper, digits)
+      mean = round(.data$mean, digits),
+      lower = round(.data$lower, digits),
+      upper = round(.data$upper, digits)
     )
 
   # Join with vector control product names if data provided
@@ -1125,7 +1117,7 @@ extract_stan_posteriors <- function(stan_fit,
 
   # Exclude control (treatment = 0), keep scalar parameters (treatment = NA)
   result <- result |>
-    dplyr::filter(is.na(treatment) | treatment > 0)
+    dplyr::filter(is.na(.data$treatment) | .data$treatment > 0)
 
   # Join with vector control product names if data provided
   if (!is.null(data) && "vector_control_product" %in% names(data)) {

@@ -1,11 +1,7 @@
-#' Data Import Module for AnophelesInterventions
-#'
-#' Functions to import entomological hut trial data from multiple file formats
-#' (CSV, Excel) with automatic format detection and preprocessing.
-#'
-#' @name data_import
-#' @docType _PACKAGE
-NULL
+# Data Import Module for AnophelesEntoTrials
+#
+# Functions to import entomological hut trial data from multiple file formats
+# (CSV, Excel) with automatic format detection and preprocessing.
 
 #' Check file integrity and required columns
 #'
@@ -177,7 +173,7 @@ import_ento_data <- function(file_path,
 
   if (!quiet) {
     cli::cli_alert_success("Data imported successfully")
-    cli::cli_alert_info("Dimensions: {nrow(data)} rows × {ncol(data)} columns")
+    cli::cli_alert_info("Dimensions: {nrow(data)} rows \u00d7 {ncol(data)} columns")
   }
 
   return(data)
