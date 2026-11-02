@@ -28,7 +28,7 @@ Default mappings include:
 \item Fed alive: FA, fedalive, F.alive, f_alive, fed_alive, etc.
 \item Fed dead: FD, feddead, F.dead, f_dead, fed_dead, etc.
 \item treatment: treatment, treat, nettype, treatment_type
-\item insecticide_name: insecticide_name, insecticide, net_type, ingredient, lntype
+\item vector_control_product: vector_control_product, insecticide, net_type, ingredient, lntype
 \item wash_status: wash_status, washed, condition, wash
 }
 }

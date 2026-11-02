@@ -8,7 +8,9 @@ prepare_stan_data_decay(data, prior_settings = NULL)
 }
 \arguments{
 \item{data}{Formatted EHT data frame with required columns:
-UA, UD, FA, FD, treatment, day, datej, fed, total.}
+UA, UD, FA, FD, treatment, day, datej, fed, total.
+Treatment must be coded 0 (control), 1, ..., tr. Day values are
+mapped to consecutive indices 1, ..., d in sorted order.}
 
 \item{prior_settings}{List. Optional prior hyperparameters:
 \itemize{

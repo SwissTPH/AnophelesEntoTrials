@@ -19,14 +19,16 @@ format_eht_data(
 \item{coerce_types}{Logical. If TRUE, coerce columns to appropriate types.}
 
 \item{control_value}{Value that identifies the control group in the treatment
-column. If NULL, attempts to detect automatically (looks for 0 or "control").}
+column. If NULL, attempts to detect automatically (looks for 0 or "control").
+Numeric treatment columns are only re-encoded when \code{control_value} is
+given (e.g. \code{control_value = 1} for data coded 1, 2, 3).}
 }
 \value{
 Formatted tibble with standardized structure:
 \itemize{
 \item Endpoints (UA, UD, FA, FD) as numeric
 \item treatment as integer (0 = control, 1+ = treatments)
-\item insecticide_name as character (if present)
+\item vector_control_product as character (if present)
 \item Derived variables: fed, dead, total (if calculate_derived = TRUE)
 }
 }

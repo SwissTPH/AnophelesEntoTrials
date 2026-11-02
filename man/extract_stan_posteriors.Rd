@@ -15,7 +15,7 @@ extract_stan_posteriors(
 \arguments{
 \item{stan_fit}{A stanfit object from \code{fit_ento_model}.}
 
-\item{data}{Optional. Original data frame with insecticide_name and treatment
+\item{data}{Optional. Original data frame with vector_control_product and treatment
 columns for labeling.}
 
 \item{pars}{Character vector. Parameters to extract. If NULL, uses default
@@ -32,9 +32,10 @@ A tibble with columns:
 \itemize{
 \item sample: Sample index
 \item param: Parameter name
-\item treatment: Treatment index
+\item treatment: Treatment index (NA for scalar parameters such as
+alpha_0 and mu_0)
 \item value: Parameter value
-\item insecticide_name: Treatment label (if data provided)
+\item vector_control_product: Treatment label (if data provided)
 }
 }
 \description{
