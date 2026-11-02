@@ -56,12 +56,21 @@ The basic model requires:
 - `treatment`: Treatment indicator (0 = control, 1+ = treatments)
 
 ```{r prepare-basic-data}
-# Example: Import data from CSV
+# Example: Import data from CSV with standard column names
 eht_data <- import_ento_data("path/to/your/data.csv")
-# Or define your required columns
-eht_data_treat <- import_ento_data("path/to/your/data.csv",
-                                   required_vars = c("deadfed", "alivefed", "alive"),
-                                   treatment_var = "Intervention")
+eht_data <- format_eht_data(eht_data)
+
+# Or, if your file uses other column names:
+# - list the endpoint columns in required_vars,
+# - give the treatment column in treatment_var (renamed to "treatment"),
+# - map the endpoint columns to UA, UD, FA, FD in format_eht_data()
+eht_data_custom <- import_ento_data("path/to/your/data.csv",
+                                    required_vars = c("alive", "dead", "alivefed", "deadfed"),
+                                    treatment_var = "Intervention")
+eht_data_custom <- format_eht_data(eht_data_custom,
+                                   mapping = list(UA = "alive", UD = "dead",
+                                                  FA = "alivefed", FD = "deadfed"),
+                                   control_value = "control")
 
 # ------------- Simulated data example ----------
 # ------------- Use it for testing purposes -----
