@@ -293,10 +293,10 @@ fit_ento_model <- function(data,
       # Custom model without stan_data - try basic preparation
       stan_data <- prepare_stan_data(data)
       if (verbose) {
-        cli::cli_alert_warning(
-          "Using basic data preparation for custom model. ",
+        cli::cli_alert_warning(paste(
+          "Using basic data preparation for custom model.",
           "Consider providing stan_data directly."
-        )
+        ))
       }
     }
   }
