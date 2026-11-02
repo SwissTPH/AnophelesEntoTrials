@@ -344,6 +344,8 @@ standardize_column_names <- function(data, mapping = NULL) {
 #' @param coerce_types Logical. If TRUE, coerce columns to appropriate types.
 #' @param control_value Value that identifies the control group in the treatment
 #'   column. If NULL, attempts to detect automatically (looks for 0 or "control").
+#'   Numeric treatment columns are only re-encoded when \code{control_value} is
+#'   given (e.g. \code{control_value = 1} for data coded 1, 2, 3).
 #'
 #' @return Formatted tibble with standardized structure:
 #'   \itemize{
@@ -392,9 +394,16 @@ format_eht_data <- function(data,
 
   # Ensure treatment column exists and is properly encoded
   if ("treatment" %in% names(data)) {
-    # Convert treatment to numeric encoding
-    if (!is.numeric(data$treatment)) {
+    # Convert treatment to numeric encoding (numeric columns only if a
+    # control value is given, otherwise they are assumed to be coded already)
+    if (!is.numeric(data$treatment) || !is.null(control_value)) {
       unique_treats <- unique(data$treatment)
+
+      if (!is.null(control_value) && !control_value %in% unique_treats) {
+        stop("control_value '", control_value, "' not found in treatment column. ",
+             "Available values: ", paste(unique_treats, collapse = ", "),
+             call. = FALSE)
+      }
 
       # Detect control value
       if (is.null(control_value)) {
@@ -412,7 +421,7 @@ format_eht_data <- function(data,
 
       # Create numeric encoding with control = 0
       treat_levels <- c(control_value, setdiff(unique_treats, control_value))
-      data$treatment <- match(data$treatment, treat_levels) - 1
+      data$treatment <- match(data$treatment, treat_levels) - 1L
     }
   }
 

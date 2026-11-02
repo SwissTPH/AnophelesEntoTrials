@@ -391,7 +391,8 @@ fit_ento_model <- function(data,
 #' Converts formatted EHT data to Stan-compatible list.
 #'
 #' @param data Formatted EHT data frame. Can have uppercase (UA, UD, FA, FD)
-#'   or lowercase (ua, ud, fa, fd) endpoint columns.
+#'   or lowercase (ua, ud, fa, fd) endpoint columns. Treatment must be coded
+#'   0 (control), 1, ..., tr (see \code{\link{format_eht_data}}).
 #' @param use_likelihood Integer. 1 for normal fitting (default),
 #'   0 for prior predictive checks.
 #'
@@ -440,17 +441,17 @@ prepare_stan_data <- function(data, use_likelihood = 1) {
     stop("Missing required column: treatment", call. = FALSE)
   }
 
+  # Ensure treatment is coded 0 (control), 1, ..., tr
+  treatment_vec <- check_treatment_coding(data[[treat_col]])
+
   # Number of treatments (excluding control)
-  nb_treat <- length(unique(data[[treat_col]]))
+  nb_treat <- length(unique(treatment_vec))
 
   # Create outcome matrix
   y_matrix <- matrix(
     c(data[[ua_col]], data[[ud_col]], data[[fa_col]], data[[fd_col]]),
     ncol = 4
   )
-
-  # Ensure treatment is integer
-  treatment_vec <- as.integer(data[[treat_col]])
 
   stan_data <- list(
     N = nrow(data),
@@ -463,6 +464,36 @@ prepare_stan_data <- function(data, use_likelihood = 1) {
   return(stan_data)
 }
 
+#' Check treatment coding expected by the Stan models
+#'
+#' The Stan models index treatment-level parameters with \code{treat + 1} and
+#' treat \code{0} as the control arm, so treatment must be coded as
+#' consecutive integers 0, 1, ..., tr.
+#'
+#' @param treatment Vector of treatment codes.
+#'
+#' @return The treatment codes as an integer vector.
+#'
+#' @keywords internal
+check_treatment_coding <- function(treatment) {
+  if (!is.numeric(treatment) || anyNA(treatment) ||
+      any(treatment != round(treatment))) {
+    stop("Treatment must be integer codes without missing values ",
+         "(0 = control, 1+ = treatments). ",
+         "Use format_eht_data() to encode treatment labels.", call. = FALSE)
+  }
+
+  codes <- sort(unique(treatment))
+  if (!identical(as.integer(codes), seq.int(0L, length(codes) - 1L))) {
+    stop("Treatment must be coded 0 (control), 1, ..., ", length(codes) - 1,
+         " with no gaps. Found: ", paste(codes, collapse = ", "), ". ",
+         "Use format_eht_data(data, control_value = ...) to re-encode.",
+         call. = FALSE)
+  }
+
+  as.integer(treatment)
+}
+
 #' Prepare data for hierarchical decay Stan model
 #'
 #' Converts longitudinal EHT data to Stan-compatible list for the
@@ -470,6 +501,8 @@ prepare_stan_data <- function(data, use_likelihood = 1) {
 #'
 #' @param data Formatted EHT data frame with required columns:
 #'   UA, UD, FA, FD, treatment, day, datej, fed, total.
+#'   Treatment must be coded 0 (control), 1, ..., tr. Day values are
+#'   mapped to consecutive indices 1, ..., d in sorted order.
 #' @param prior_settings List. Optional prior hyperparameters:
 #'   \itemize{
 #'     \item priorsigma_mean_logrates: Prior sigma for log rates (default: 6)
@@ -508,9 +541,19 @@ prepare_stan_data_decay <- function(data, prior_settings = NULL) {
   fa_col <- get_col("FA")
   fd_col <- get_col("FD")
 
+  # Ensure treatment is coded 0 (control), 1, ..., tr
+  treatment_vec <- check_treatment_coding(data[[get_col("treatment")]])
+
+  # Day is a grouping index in Stan, so map it to 1, ..., d
+  day_raw <- data[[get_col("day")]]
+  if (anyNA(day_raw)) {
+    stop("Column 'day' contains missing values.", call. = FALSE)
+  }
+  day_vec <- match(day_raw, sort(unique(day_raw)))
+
   # Number of treatments and days
-  nb_treat <- length(unique(data[[get_col("treatment")]])) - 1
-  nb_days <- length(unique(data[[get_col("day")]]))
+  nb_treat <- length(unique(treatment_vec)) - 1
+  nb_days <- length(unique(day_vec))
 
   # Create y matrix (UA, F=FA+FD, UD) - 3 columns for this model
   y_matrix <- matrix(
@@ -536,8 +579,8 @@ prepare_stan_data_decay <- function(data, prior_settings = NULL) {
     d = nb_days,
     total = as.integer(data[[get_col("total")]]),
     datej = as.integer(data[[get_col("datej")]]),
-    day = as.integer(data[[get_col("day")]]),
-    treat = as.integer(data[[get_col("treatment")]]),
+    day = day_vec,
+    treat = treatment_vec,
     fed = as.integer(data[[get_col("fed")]]),
     FA = as.integer(data[[get_col("FA")]]),
     y = y_matrix,
