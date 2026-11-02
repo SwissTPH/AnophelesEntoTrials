@@ -100,11 +100,17 @@ check_file_integrity <- function(file_path,
 #' @param treatment_var Character. Name of the treatment column in the file
 #'   (case-insensitive). It is renamed to \code{treatment}, the name used by
 #'   \code{\link{format_eht_data}} and the model functions.
+#' @param product_var Character or NULL. Name of the column with the vector
+#'   control product names (case-insensitive). If given, it is required and
+#'   renamed to \code{vector_control_product}, which the extract functions use
+#'   to label results. If NULL (default), no product column is required.
 #' @param quiet Logical. If FALSE, print import status.
 #'
 #' @return A tibble with standardized column names and data types.
 #'   - Endpoints (ua, ud, fa, fd) are numeric.
 #'   - Treatment variable: renamed to \code{treatment}, values preserved as-is
+#'   - Product variable (if \code{product_var} is given): renamed to
+#'     \code{vector_control_product}, values preserved as-is
 #'   - Other variables: preserved as-is
 #'
 #' @details
@@ -115,6 +121,8 @@ check_file_integrity <- function(file_path,
 #'   \item Converts to tibble format
 #'   \item Standardizes column names to lowercase
 #'   \item Renames the treatment column to \code{treatment}
+#'   \item Renames the product column to \code{vector_control_product}
+#'     (if \code{product_var} is given)
 #'   \item Coerces endpoints to numeric
 #'   \item Returns as \code{tibble}
 #' }
@@ -129,17 +137,22 @@ check_file_integrity <- function(file_path,
 #'
 #' # Treatment stored in a column called "Intervention"
 #' data <- import_ento_data("trial_data.csv", treatment_var = "Intervention")
+#'
+#' # Treatment codes in "arm", product names in "net_name"
+#' data <- import_ento_data("trial_data.csv",
+#'   treatment_var = "arm", product_var = "net_name")
 #' }
 #'
 #' @export
 import_ento_data <- function(file_path,
                             required_vars = c("UA", "UD", "FA", "FD", "treatment"),
                             treatment_var = "treatment",
+                            product_var = NULL,
                             quiet = FALSE) {
 
-  # The treatment column is checked under the name given in treatment_var
+  # The treatment (and product) columns are checked under the names given
   required_vars <- unique(c(required_vars[tolower(required_vars) != "treatment"],
-                            treatment_var))
+                            treatment_var, product_var))
 
   # Validate file
   file_format <- check_file_integrity(file_path, required_vars, verbose = !quiet)
@@ -161,17 +174,11 @@ import_ento_data <- function(file_path,
   # Clean names
   names(data) <- tolower(names(data))
 
-  # Rename the treatment variable to "treatment"
-  treat_idx <- which(names(data) == tolower(treatment_var))
-  if (length(treat_idx) == 0) {
-    stop("Treatment variable '", treatment_var, "' not found in data. Available columns: ",
-         paste(names(data), collapse = ", "), call. = FALSE)
+  # Rename the treatment and product variables to their standard names
+  data <- rename_import_column(data, treatment_var, "treatment")
+  if (!is.null(product_var)) {
+    data <- rename_import_column(data, product_var, "vector_control_product")
   }
-  if (tolower(treatment_var) != "treatment" && "treatment" %in% names(data)) {
-    stop("Cannot rename '", treatment_var, "' to 'treatment': the data already ",
-         "has a 'treatment' column.", call. = FALSE)
-  }
-  names(data)[treat_idx[1]] <- "treatment"
 
   # Convert endpoints to numeric
   endpoint_cols <- c("ua", "ud", "fa", "fd")
@@ -188,6 +195,32 @@ import_ento_data <- function(file_path,
   }
 
   return(data)
+}
+
+#' Rename an imported column to its standard name
+#'
+#' Used by \code{\link{import_ento_data}} to rename the user's treatment and
+#' product columns. Column names are expected to be lowercase already.
+#'
+#' @param data Data frame with lowercase column names.
+#' @param from Character. Name of the column in the file (case-insensitive).
+#' @param to Character. Standard column name.
+#'
+#' @return \code{data} with the column renamed.
+#'
+#' @keywords internal
+rename_import_column <- function(data, from, to) {
+  idx <- which(names(data) == tolower(from))
+  if (length(idx) == 0) {
+    stop("Column '", from, "' not found in data. Available columns: ",
+         paste(names(data), collapse = ", "), call. = FALSE)
+  }
+  if (tolower(from) != to && to %in% names(data)) {
+    stop("Cannot rename '", from, "' to '", to, "': the data already ",
+         "has a '", to, "' column.", call. = FALSE)
+  }
+  names(data)[idx[1]] <- to
+  data
 }
 
 #' Format Variable Names for Entomological Data
@@ -362,7 +395,8 @@ standardize_column_names <- function(data, mapping = NULL) {
 #'   \itemize{
 #'     \item Endpoints (UA, UD, FA, FD) as numeric
 #'     \item treatment as integer (0 = control, 1+ = treatments)
-#'     \item vector_control_product as character (if present)
+#'     \item vector_control_product as character (if present; otherwise
+#'       created from text treatment labels before they are encoded)
 #'     \item Derived variables: fed, dead, total (if calculate_derived = TRUE)
 #'   }
 #'
@@ -433,6 +467,12 @@ format_eht_data <- function(data,
           warning("Control group not detected. Using '", control_value, "' as control.",
                   call. = FALSE)
         }
+      }
+
+      # Keep text labels as product names, so they are not lost by encoding
+      if (!is.numeric(data$treatment) &&
+          !"vector_control_product" %in% names(data)) {
+        data$vector_control_product <- as.character(data$treatment)
       }
 
       # Create numeric encoding with control = 0

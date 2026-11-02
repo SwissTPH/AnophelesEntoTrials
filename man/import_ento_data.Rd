@@ -8,6 +8,7 @@ import_ento_data(
   file_path,
   required_vars = c("UA", "UD", "FA", "FD", "treatment"),
   treatment_var = "treatment",
+  product_var = NULL,
   quiet = FALSE
 )
 }
@@ -22,6 +23,11 @@ required.}
 (case-insensitive). It is renamed to \code{treatment}, the name used by
 \code{\link{format_eht_data}} and the model functions.}
 
+\item{product_var}{Character or NULL. Name of the column with the vector
+control product names (case-insensitive). If given, it is required and
+renamed to \code{vector_control_product}, which the extract functions use
+to label results. If NULL (default), no product column is required.}
+
 \item{quiet}{Logical. If FALSE, print import status.}
 }
 \value{
@@ -29,6 +35,8 @@ A tibble with standardized column names and data types.
 \itemize{
 \item Endpoints (ua, ud, fa, fd) are numeric.
 \item Treatment variable: renamed to \code{treatment}, values preserved as-is
+\item Product variable (if \code{product_var} is given): renamed to
+\code{vector_control_product}, values preserved as-is
 \item Other variables: preserved as-is
 }
 }
@@ -45,6 +53,8 @@ The import function:
 \item Converts to tibble format
 \item Standardizes column names to lowercase
 \item Renames the treatment column to \code{treatment}
+\item Renames the product column to \code{vector_control_product}
+(if \code{product_var} is given)
 \item Coerces endpoints to numeric
 \item Returns as \code{tibble}
 }
@@ -59,6 +69,10 @@ data <- import_ento_data("trial_data.xlsx")
 
 # Treatment stored in a column called "Intervention"
 data <- import_ento_data("trial_data.csv", treatment_var = "Intervention")
+
+# Treatment codes in "arm", product names in "net_name"
+data <- import_ento_data("trial_data.csv",
+  treatment_var = "arm", product_var = "net_name")
 }
 
 }

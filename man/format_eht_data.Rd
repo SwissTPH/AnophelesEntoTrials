@@ -34,7 +34,8 @@ Formatted tibble with standardized structure:
 \itemize{
 \item Endpoints (UA, UD, FA, FD) as numeric
 \item treatment as integer (0 = control, 1+ = treatments)
-\item vector_control_product as character (if present)
+\item vector_control_product as character (if present; otherwise
+created from text treatment labels before they are encoded)
 \item Derived variables: fed, dead, total (if calculate_derived = TRUE)
 }
 }

@@ -244,6 +244,36 @@ test_that("format_eht_data errors when control_value is not in the data", {
   )
 })
 
+test_that("format_eht_data keeps text treatment labels as product names", {
+  data <- data.frame(
+    UA = c(10, 20, 30),
+    UD = c(2, 4, 6),
+    FA = c(5, 10, 15),
+    FD = c(1, 2, 3),
+    treatment = c("control", "ITN_A", "ITN_B")
+  )
+
+  result <- format_eht_data(data)
+
+  expect_identical(result$treatment, c(0L, 1L, 2L))
+  expect_equal(result$vector_control_product, c("control", "ITN_A", "ITN_B"))
+})
+
+test_that("format_eht_data does not overwrite an existing product column", {
+  data <- data.frame(
+    UA = c(10, 20),
+    UD = c(2, 4),
+    FA = c(5, 10),
+    FD = c(1, 2),
+    treatment = c("control", "arm_1"),
+    vector_control_product = c("Untreated", "PBO_Net")
+  )
+
+  result <- format_eht_data(data)
+
+  expect_equal(result$vector_control_product, c("Untreated", "PBO_Net"))
+})
+
 test_that("format_eht_data applies a custom column mapping", {
   data <- data.frame(
     alive = c(10, 20),
@@ -412,6 +442,38 @@ test_that("import_ento_data errors if treatment_var is missing", {
   expect_error(
     import_ento_data(temp_file, treatment_var = "Intervention", quiet = TRUE),
     "Missing required columns: intervention"
+  )
+})
+
+test_that("import_ento_data renames product_var to vector_control_product", {
+  temp_file <- tempfile(fileext = ".csv")
+  data <- data.frame(
+    UA = c(10, 20),
+    UD = c(2, 4),
+    FA = c(5, 10),
+    FD = c(1, 2),
+    arm = c(0, 1),
+    Net_Name = c("Untreated", "PBO_Net")
+  )
+  write.csv(data, temp_file, row.names = FALSE)
+  on.exit(unlink(temp_file))
+
+  result <- import_ento_data(temp_file, treatment_var = "arm",
+                             product_var = "Net_Name", quiet = TRUE)
+
+  expect_equal(result$treatment, c(0, 1))
+  expect_equal(result$vector_control_product, c("Untreated", "PBO_Net"))
+})
+
+test_that("import_ento_data errors if product_var is missing", {
+  temp_file <- tempfile(fileext = ".csv")
+  data <- create_test_data()
+  write.csv(data, temp_file, row.names = FALSE)
+  on.exit(unlink(temp_file))
+
+  expect_error(
+    import_ento_data(temp_file, product_var = "net_name", quiet = TRUE),
+    "Missing required columns: net_name"
   )
 })
 

@@ -63,10 +63,16 @@ eht_data <- format_eht_data(eht_data)
 # Or, if your file uses other column names:
 # - list the endpoint columns in required_vars,
 # - give the treatment column in treatment_var (renamed to "treatment"),
+# - give the product names column in product_var (renamed to
+#   "vector_control_product", used to label the results),
 # - map the endpoint columns to UA, UD, FA, FD in format_eht_data()
+# If the treatment column holds product names and there is no product
+# column, format_eht_data() keeps those names in vector_control_product
+# before encoding treatment as 0 (control), 1, 2, ...
 eht_data_custom <- import_ento_data("path/to/your/data.csv",
                                     required_vars = c("alive", "dead", "alivefed", "deadfed"),
-                                    treatment_var = "Intervention")
+                                    treatment_var = "Intervention",
+                                    product_var = "Net_Name")
 eht_data_custom <- format_eht_data(eht_data_custom,
                                    mapping = list(UA = "alive", UD = "dead",
                                                   FA = "alivefed", FD = "deadfed"),
