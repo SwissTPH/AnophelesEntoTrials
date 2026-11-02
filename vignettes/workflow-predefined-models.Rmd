@@ -192,7 +192,7 @@ print(summary_results)
 
 ### posteriorMax Estimates
 
-```{r extract-map}
+```{r extract-posteriorMax}
 # Get posteriorMax estimates (single best estimate)
 posteriorMax <- extract_posteriorMax(fit_basic, data = eht_data)
 print(posteriorMax)

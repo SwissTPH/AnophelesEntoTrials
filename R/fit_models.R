@@ -1001,8 +1001,9 @@ extract_stan_summary <- function(stan_fit,
 
 #' Extract posterior samples from Stan fit
 #'
-#' Extracts posterior samples or MAP (Maximum A Posteriori) estimates
-#' from a fitted Stan model.
+#' Extracts posterior samples or the posteriorMax estimate from a fitted
+#' Stan model. The posteriorMax estimate is the posterior draw with the
+#' highest log posterior density (\code{lp__}) among the samples.
 #'
 #' @param stan_fit A stanfit object from \code{fit_ento_model}.
 #' @param data Optional. Original data frame with vector_control_product and treatment
@@ -1011,8 +1012,8 @@ extract_stan_summary <- function(stan_fit,
 #'   intervention parameters.
 #' @param n_samples Integer. Number of posterior samples to return.
 #'   If NULL, returns all samples.
-#' @param map_only Logical. If TRUE, returns only the MAP estimate (sample with
-#'   highest log posterior). Default is FALSE.
+#' @param posteriorMax_only Logical. If TRUE, returns only the posteriorMax
+#'   estimate (sample with highest log posterior). Default is FALSE.
 #'
 #' @return A tibble with columns:
 #'   \itemize{
@@ -1029,8 +1030,8 @@ extract_stan_summary <- function(stan_fit,
 #' # Extract all posterior samples
 #' samples <- extract_stan_posteriors(fit)
 #'
-#' # Extract MAP estimate only
-#' map_estimate <- extract_stan_posteriors(fit, map_only = TRUE)
+#' # Extract posteriorMax estimate only
+#' posteriorMax <- extract_stan_posteriors(fit, posteriorMax_only = TRUE)
 #'
 #' # Extract 100 random samples
 #' samples <- extract_stan_posteriors(fit, n_samples = 100)
@@ -1041,9 +1042,9 @@ extract_stan_posteriors <- function(stan_fit,
                                      data = NULL,
                                      pars = NULL,
                                      n_samples = NULL,
-                                     map_only = FALSE) {
+                                     posteriorMax_only = FALSE) {
 
-  # Default parameters (include lp__ for MAP)
+  # Default parameters
   if (is.null(pars)) {
     pars <- c("InitialPostprandialkillingEfficacy",
               "InitialPreprandialkillingEfficacy",
@@ -1052,7 +1053,7 @@ extract_stan_posteriors <- function(stan_fit,
               "alpha_0", "mu_0")
   }
 
-  # Always include lp__ for MAP
+  # Always include lp__ for posteriorMax
   pars_with_lp <- unique(c(pars, "lp__"))
 
   # Check which parameters exist
@@ -1065,10 +1066,10 @@ extract_stan_posteriors <- function(stan_fit,
   # Get total number of samples
   total_samples <- length(fit_extract$lp__)
 
-  if (map_only) {
-    # Find MAP estimate
-    id_MAP <- which.max(fit_extract$lp__)
-    sample_ids <- id_MAP
+  if (posteriorMax_only) {
+    # Find posteriorMax estimate
+    id_posteriorMax <- which.max(fit_extract$lp__)
+    sample_ids <- id_posteriorMax
   } else if (!is.null(n_samples) && n_samples < total_samples) {
     # Random subset of samples
     sample_ids <- sample(1:total_samples, n_samples)
@@ -1149,5 +1150,6 @@ extract_stan_posteriors <- function(stan_fit,
 #'
 #' @export
 extract_posteriorMax <- function(stan_fit, data = NULL, pars = NULL) {
-  extract_stan_posteriors(stan_fit, data = data, pars = pars, map_only = TRUE)
+  extract_stan_posteriors(stan_fit, data = data, pars = pars,
+                          posteriorMax_only = TRUE)
 }

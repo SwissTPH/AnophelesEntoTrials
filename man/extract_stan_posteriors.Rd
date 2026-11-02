@@ -9,7 +9,7 @@ extract_stan_posteriors(
   data = NULL,
   pars = NULL,
   n_samples = NULL,
-  map_only = FALSE
+  posteriorMax_only = FALSE
 )
 }
 \arguments{
@@ -24,8 +24,8 @@ intervention parameters.}
 \item{n_samples}{Integer. Number of posterior samples to return.
 If NULL, returns all samples.}
 
-\item{map_only}{Logical. If TRUE, returns only the MAP estimate (sample with
-highest log posterior). Default is FALSE.}
+\item{posteriorMax_only}{Logical. If TRUE, returns only the posteriorMax
+estimate (sample with highest log posterior). Default is FALSE.}
 }
 \value{
 A tibble with columns:
@@ -39,16 +39,17 @@ alpha_0 and mu_0)
 }
 }
 \description{
-Extracts posterior samples or MAP (Maximum A Posteriori) estimates
-from a fitted Stan model.
+Extracts posterior samples or the posteriorMax estimate from a fitted
+Stan model. The posteriorMax estimate is the posterior draw with the
+highest log posterior density (\code{lp__}) among the samples.
 }
 \examples{
 \dontrun{
 # Extract all posterior samples
 samples <- extract_stan_posteriors(fit)
 
-# Extract MAP estimate only
-map_estimate <- extract_stan_posteriors(fit, map_only = TRUE)
+# Extract posteriorMax estimate only
+posteriorMax <- extract_stan_posteriors(fit, posteriorMax_only = TRUE)
 
 # Extract 100 random samples
 samples <- extract_stan_posteriors(fit, n_samples = 100)
