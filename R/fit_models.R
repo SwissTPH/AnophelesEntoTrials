@@ -1026,7 +1026,8 @@ extract_stan_summary <- function(stan_fit,
 #'   \itemize{
 #'     \item sample: Sample index
 #'     \item param: Parameter name
-#'     \item treatment: Treatment index
+#'     \item treatment: Treatment index (NA for scalar parameters such as
+#'       alpha_0 and mu_0)
 #'     \item value: Parameter value
 #'     \item vector_control_product: Treatment label (if data provided)
 #'   }
@@ -1107,12 +1108,12 @@ extract_stan_posteriors <- function(stan_fit,
         }
       }
     } else {
-      # Scalar parameter
+      # Scalar parameter (not treatment-specific)
       for (s in sample_ids) {
         results[[length(results) + 1]] <- data.frame(
           sample = s,
           param = par_name,
-          treatment = 0,
+          treatment = NA_real_,
           value = par_samples[s],
           stringsAsFactors = FALSE
         )
@@ -1122,9 +1123,9 @@ extract_stan_posteriors <- function(stan_fit,
 
   result <- dplyr::bind_rows(results)
 
-  # Filter to treatment effects only (exclude control, treatment = 0)
+  # Exclude control (treatment = 0), keep scalar parameters (treatment = NA)
   result <- result |>
-    dplyr::filter(treatment > 0)
+    dplyr::filter(is.na(treatment) | treatment > 0)
 
   # Join with vector control product names if data provided
   if (!is.null(data) && "vector_control_product" %in% names(data)) {
