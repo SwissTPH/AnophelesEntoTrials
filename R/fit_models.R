@@ -919,32 +919,32 @@ extract_stan_summary <- function(stan_fit,
 
   # Parse parameter names and indices
   # Pattern: paramname[index] or paramname
-  summary_df <- summary_df %>%
+  summary_df <- summary_df |>
     dplyr::mutate(
       param = gsub("\\[.*\\]", "", index),
       treatment = as.integer(gsub(".*\\[([0-9]+)\\].*", "\\1", index))
-    ) %>%
+    ) |>
     dplyr::mutate(
       treatment = ifelse(grepl("\\[", index), treatment, NA_integer_)
     )
 
   # Filter to treatment effects only (index > 1, since 1 is control)
-  summary_df <- summary_df %>%
-    dplyr::filter(is.na(treatment) | treatment > 1) %>%
+  summary_df <- summary_df |>
+    dplyr::filter(is.na(treatment) | treatment > 1) |>
     dplyr::mutate(treatment = treatment - 1)  # Convert to 1-indexed treatments
 
   # Select and rename columns
   lower_col <- paste0(probs[1] * 100, "%")
   upper_col <- paste0(probs[2] * 100, "%")
 
-  result <- summary_df %>%
+  result <- summary_df |>
     dplyr::select(
       param,
       treatment,
       mean = mean,
       lower = dplyr::all_of(lower_col),
       upper = dplyr::all_of(upper_col)
-    ) %>%
+    ) |>
     dplyr::mutate(
       mean = round(mean, digits),
       lower = round(lower, digits),
@@ -957,7 +957,7 @@ extract_stan_summary <- function(stan_fit,
     treatment_labels <- unique(data[, c("vector_control_product", "treatment")])
     treatment_labels <- treatment_labels[treatment_labels$treatment > 0, ]
 
-    result <- result %>%
+    result <- result |>
       dplyr::left_join(treatment_labels, by = "treatment")
   }
 
@@ -1080,7 +1080,7 @@ extract_stan_posteriors <- function(stan_fit,
   result <- dplyr::bind_rows(results)
 
   # Filter to treatment effects only (exclude control, treatment = 0)
-  result <- result %>%
+  result <- result |>
     dplyr::filter(treatment > 0)
 
   # Join with vector control product names if data provided
@@ -1088,7 +1088,7 @@ extract_stan_posteriors <- function(stan_fit,
     treatment_labels <- unique(data[, c("vector_control_product", "treatment")])
     treatment_labels <- treatment_labels[treatment_labels$treatment > 0, ]
 
-    result <- result %>%
+    result <- result |>
       dplyr::left_join(treatment_labels, by = "treatment")
   }
 
