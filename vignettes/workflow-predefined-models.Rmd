@@ -80,48 +80,22 @@ eht_data_custom <- format_eht_data(eht_data_custom,
 
 # ------------- Simulated data example ----------
 # ------------- Use it for testing purposes -----
-set.seed(42)
-
-# True parameters for simulation
-mu_0 <- 0.14      # baseline mortality rate
-alpha_0 <- 0.15   # baseline attack rate
-pB_0 <- 0.92      # baseline survival probability post-feeding (blood-meal survival)
-
-# Treatment effects
-pi <- 0.69        # repellency (69% deterrent effect)
-kappa <- 3.8      # pre-prandial killing multiplier
-xi <- 0.52        # post-prandial killing (52% killed after feeding)
-
-# Probability function for mosquito outcomes
-return_proba <- function(alpha, mu, pc) {
-  c(
-    exp(-alpha - mu),                                    # UA: unfed alive
-    (1 - exp(-alpha - mu)) * mu / (alpha + mu),          # UD: unfed dead
-    (1 - exp(-alpha - mu)) * alpha / (alpha + mu) * pc,  # FA: fed alive
-    (1 - exp(-alpha - mu)) * alpha / (alpha + mu) * (1 - pc)  # FD: fed dead
-  )
-}
-
-# Calculate probabilities for control and treatment
-proba_control <- return_proba(alpha_0, mu_0, pB_0)
-proba_treatment <- return_proba(
-  alpha_0 * (1 - pi),           # reduced attack rate due to repellency
-  mu_0 + alpha_0 * kappa,       # increased mortality
-  pB_0 * (1 - xi)               # reduced survival post-feeding
+# Simulate 100 hut-nights per arm with 10 mosquitoes each, from the basic
+# model with known parameter values (see ?simulate_eht_data)
+simulated_data <- simulate_eht_data(
+  n_obs = 100,
+  n_mosquitoes = 10,
+  alpha_0 = 0.15,   # baseline attack rate
+  mu_0 = 0.14,      # baseline mortality rate
+  pB_0 = 0.92,      # baseline survival probability after blood-feeding
+  treatments = data.frame(
+    vector_control_product = "NewITN",
+    InitialRepellencyRate = 0.69,               # repellency
+    KillingDuringHostSeeking = 3.8,             # pre-prandial killing multiplier
+    InitialPostprandialkillingEfficacy = 0.52   # post-prandial killing
+  ),
+  seed = 42
 )
-
-# Generate simulated data
-n_samples <- 100
-
-sample_control <- data.frame(t(rmultinom(n_samples, 10, proba_control)))
-sample_treatment <- data.frame(t(rmultinom(n_samples, 10, proba_treatment)))
-
-# Combine into dataset
-simulated_data <- rbind(
-  data.frame(sample_control, treatment = 0, vector_control_product = "Control"),
-  data.frame(sample_treatment, treatment = 1, vector_control_product = "NewITN")
-)
-names(simulated_data)[1:4] <- c("UA", "UD", "FA", "FD")
 
 # Format the data (adds derived columns)
 eht_data <- format_eht_data(simulated_data)
