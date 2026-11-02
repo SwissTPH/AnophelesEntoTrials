@@ -55,7 +55,7 @@ list_available_models <- function(details = FALSE) {
     ),
     semifield = list(
       name = "semifield",
-      file = "13071_2020_4560_MOESM4_ESM.stan",
+      file = "semifield_time_mcmc.stan",
       description = "Continuous-time Markov chain model for semifield experiments",
       required_data = c("y0", "y1", "n", "K"),
       parameters = c("rho", "alpha_H0", "alpha_T0", "mu0",
@@ -118,7 +118,7 @@ get_model_config <- function(model_type) {
       init_generator = "generate_inits_decay"
     ),
     semifield = list(
-      file = "13071_2020_4560_MOESM4_ESM.stan",
+      file = "semifield_time_mcmc.stan",
       pars = c("rho", "alpha_H0", "alpha_T0", "mu0",
                "alpha_H1", "alpha_T1", "mu1"),
       prepare_data = "prepare_stan_data_semifield",
