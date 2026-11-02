@@ -274,6 +274,35 @@ test_that("format_eht_data does not overwrite an existing product column", {
   expect_equal(result$vector_control_product, c("Untreated", "PBO_Net"))
 })
 
+test_that("format_eht_data errors if a treatment has several products", {
+  data <- data.frame(
+    UA = c(10, 20, 30),
+    UD = c(2, 4, 6),
+    FA = c(5, 10, 15),
+    FD = c(1, 2, 3),
+    treatment = c(0, 1, 1),
+    vector_control_product = c("Untreated", "PBO_Net", "PBO_net")
+  )
+
+  expect_error(
+    format_eht_data(data),
+    "Treatment\\(s\\) with several products: 1 \\(PBO_Net, PBO_net\\)"
+  )
+})
+
+test_that("format_eht_data allows the same product under several treatments", {
+  data <- data.frame(
+    UA = c(10, 20, 30),
+    UD = c(2, 4, 6),
+    FA = c(5, 10, 15),
+    FD = c(1, 2, 3),
+    treatment = c(0, 1, 2),
+    vector_control_product = c("Untreated", "PBO_Net", "PBO_Net")
+  )
+
+  expect_no_error(format_eht_data(data))
+})
+
 test_that("format_eht_data applies a custom column mapping", {
   data <- data.frame(
     alive = c(10, 20),

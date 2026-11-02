@@ -42,6 +42,9 @@ created from text treatment labels before they are encoded)
 \description{
 Transforms raw EHT data into standardized format required for analysis.
 Handles column renaming, derived variable calculation, and type coercion.
+Stops if a treatment code has more than one vector_control_product, since
+the extract functions would then duplicate rows when labelling results.
+The same product may appear under several codes (e.g. washed and unwashed).
 }
 \examples{
 \dontrun{

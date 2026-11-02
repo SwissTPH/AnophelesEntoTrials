@@ -378,6 +378,9 @@ standardize_column_names <- function(data, mapping = NULL) {
 #'
 #' Transforms raw EHT data into standardized format required for analysis.
 #' Handles column renaming, derived variable calculation, and type coercion.
+#' Stops if a treatment code has more than one vector_control_product, since
+#' the extract functions would then duplicate rows when labelling results.
+#' The same product may appear under several codes (e.g. washed and unwashed).
 #'
 #' @param data Data frame or tibble. Raw EHT data.
 #' @param calculate_derived Logical. If TRUE, calculate fed, dead, total columns.
@@ -478,6 +481,23 @@ format_eht_data <- function(data,
       # Create numeric encoding with control = 0
       treat_levels <- c(control_value, setdiff(unique_treats, control_value))
       data$treatment <- match(data$treatment, treat_levels) - 1L
+    }
+  }
+
+  # Each treatment code must have a single product name, otherwise labelling
+  # the results joins several names to one code and duplicates rows
+  if (all(c("treatment", "vector_control_product") %in% names(data))) {
+    pairs <- unique(data[, c("treatment", "vector_control_product")])
+    dup_codes <- unique(pairs$treatment[duplicated(pairs$treatment)])
+
+    if (length(dup_codes) > 0) {
+      details <- vapply(dup_codes, function(code) {
+        products <- pairs$vector_control_product[pairs$treatment %in% code]
+        paste0(code, " (", paste(products, collapse = ", "), ")")
+      }, character(1))
+      stop("Each treatment must have a single vector_control_product. ",
+           "Treatment(s) with several products: ",
+           paste(details, collapse = "; "), call. = FALSE)
     }
   }
 
