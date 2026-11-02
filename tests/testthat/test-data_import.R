@@ -244,6 +244,23 @@ test_that("format_eht_data errors when control_value is not in the data", {
   )
 })
 
+test_that("format_eht_data applies a custom column mapping", {
+  data <- data.frame(
+    alive = c(10, 20),
+    dead = c(2, 4),
+    alivefed = c(5, 10),
+    deadfed = c(1, 2),
+    treatment = c(0, 1)
+  )
+
+  result <- format_eht_data(data, mapping = list(
+    UA = "alive", UD = "dead", FA = "alivefed", FD = "deadfed"
+  ))
+
+  expect_true(all(c("UA", "UD", "FA", "FD") %in% names(result)))
+  expect_equal(result$total, c(18, 36))
+})
+
 test_that("format_eht_data errors on missing required columns", {
   data <- data.frame(
     UA = c(10, 20),

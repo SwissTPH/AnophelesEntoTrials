@@ -353,6 +353,10 @@ standardize_column_names <- function(data, mapping = NULL) {
 #'   column. If NULL, attempts to detect automatically (looks for 0 or "control").
 #'   Numeric treatment columns are only re-encoded when \code{control_value} is
 #'   given (e.g. \code{control_value = 1} for data coded 1, 2, 3).
+#' @param mapping List. Custom column name mapping passed to
+#'   \code{\link{standardize_column_names}}, e.g.
+#'   \code{list(UA = "alive", FA = "alivefed")}. Each element is named with
+#'   the standard column name and contains the source name(s) in the data.
 #'
 #' @return Formatted tibble with standardized structure:
 #'   \itemize{
@@ -369,16 +373,21 @@ standardize_column_names <- function(data, mapping = NULL) {
 #'
 #' # Specify control group
 #' data_formatted <- format_eht_data(raw_data, control_value = "untreated")
+#'
+#' # Map non-standard column names
+#' data_formatted <- format_eht_data(raw_data,
+#'   mapping = list(UA = "alive", UD = "dead", FA = "alivefed", FD = "deadfed"))
 #' }
 #'
 #' @export
 format_eht_data <- function(data,
                             calculate_derived = TRUE,
                             coerce_types = TRUE,
-                            control_value = NULL) {
+                            control_value = NULL,
+                            mapping = NULL) {
 
   # Standardize column names first
-  data <- standardize_column_names(data)
+  data <- standardize_column_names(data, mapping = mapping)
 
   # Define required endpoints
   required_endpoints <- c("UA", "UD", "FA", "FD")
