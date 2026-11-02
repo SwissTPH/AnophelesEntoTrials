@@ -896,8 +896,10 @@ check_stan_warnings <- function(stan_fit, verbose = TRUE) {
 #' @param stan_fit A stanfit object from \code{fit_ento_model}.
 #' @param data Optional. Original data frame with vector_control_product and treatment
 #'   columns for labeling.
-#' @param pars Character vector. Parameters to extract. If NULL, uses default
-#'   intervention parameters.
+#' @param pars Character vector. Parameters to extract. If NULL, uses the
+#'   intervention parameters and the baseline parameters alpha_0, mu_0 and
+#'   pB_0 (see \code{get_default_parameters()}). Parameters not in the model
+#'   are skipped.
 #' @param probs Numeric vector. Quantiles for credible intervals.
 #'   Default is c(0.025, 0.975) for 95% CI.
 #' @param digits Integer. Number of decimal places to round to.
@@ -905,7 +907,8 @@ check_stan_warnings <- function(stan_fit, verbose = TRUE) {
 #' @return A tibble with columns:
 #'   \itemize{
 #'     \item param: Parameter name
-#'     \item treatment: Treatment index (1, 2, ...)
+#'     \item treatment: Treatment index (1, 2, ...; NA for scalar parameters
+#'       such as alpha_0, mu_0 and pB_0)
 #'     \item mean: Posterior mean
 #'     \item lower: Lower credible interval bound
 #'     \item upper: Upper credible interval bound
@@ -928,12 +931,9 @@ extract_stan_summary <- function(stan_fit,
                                   probs = c(0.025, 0.975),
                                   digits = 3) {
 
-  # Default parameters
+  # Default parameters (intervention effects and baseline parameters)
   if (is.null(pars)) {
-    pars <- c("InitialPostprandialkillingEfficacy",
-              "InitialPreprandialkillingEfficacy",
-              "InitialRepellencyRate",
-              "KillingDuringHostSeeking")
+    pars <- get_default_parameters()
   }
 
   # Check which parameters exist in the model
@@ -957,10 +957,12 @@ extract_stan_summary <- function(stan_fit,
   summary_df <- summary_df |>
     dplyr::mutate(
       param = gsub("\\[.*\\]", "", .data$index),
-      treatment = as.integer(gsub(".*\\[([0-9]+)\\].*", "\\1", .data$index))
-    ) |>
-    dplyr::mutate(
-      treatment = ifelse(grepl("\\[", .data$index), .data$treatment, NA_integer_)
+      # Scalar parameters have no index and get NA
+      treatment = as.integer(ifelse(
+        grepl("\\[", .data$index),
+        gsub(".*\\[([0-9]+)\\].*", "\\1", .data$index),
+        NA_character_
+      ))
     )
 
   # Filter to treatment effects only (index > 1, since 1 is control)
@@ -1008,8 +1010,10 @@ extract_stan_summary <- function(stan_fit,
 #' @param stan_fit A stanfit object from \code{fit_ento_model}.
 #' @param data Optional. Original data frame with vector_control_product and treatment
 #'   columns for labeling.
-#' @param pars Character vector. Parameters to extract. If NULL, uses default
-#'   intervention parameters.
+#' @param pars Character vector. Parameters to extract. If NULL, uses the
+#'   intervention parameters and the baseline parameters alpha_0, mu_0 and
+#'   pB_0 (see \code{get_default_parameters()}). Parameters not in the model
+#'   are skipped.
 #' @param n_samples Integer. Number of posterior samples to return.
 #'   If NULL, returns all samples.
 #' @param posteriorMax_only Logical. If TRUE, returns only the posteriorMax
@@ -1020,7 +1024,7 @@ extract_stan_summary <- function(stan_fit,
 #'     \item sample: Sample index
 #'     \item param: Parameter name
 #'     \item treatment: Treatment index (NA for scalar parameters such as
-#'       alpha_0 and mu_0)
+#'       alpha_0, mu_0 and pB_0)
 #'     \item value: Parameter value
 #'     \item vector_control_product: Treatment label (if data provided)
 #'   }
@@ -1044,13 +1048,9 @@ extract_stan_posteriors <- function(stan_fit,
                                      n_samples = NULL,
                                      posteriorMax_only = FALSE) {
 
-  # Default parameters
+  # Default parameters (intervention effects and baseline parameters)
   if (is.null(pars)) {
-    pars <- c("InitialPostprandialkillingEfficacy",
-              "InitialPreprandialkillingEfficacy",
-              "InitialRepellencyRate",
-              "KillingDuringHostSeeking",
-              "alpha_0", "mu_0")
+    pars <- get_default_parameters()
   }
 
   # Always include lp__ for posteriorMax
@@ -1139,7 +1139,8 @@ extract_stan_posteriors <- function(stan_fit,
 #'
 #' @param stan_fit A stanfit object from \code{fit_ento_model}.
 #' @param data Optional. Original data frame for treatment labels.
-#' @param pars Character vector. Parameters to extract.
+#' @param pars Character vector. Parameters to extract. If NULL, uses the
+#'   same defaults as \code{\link{extract_stan_posteriors}}.
 #'
 #' @return A tibble with posteriorMax estimates for each parameter and treatment.
 #'

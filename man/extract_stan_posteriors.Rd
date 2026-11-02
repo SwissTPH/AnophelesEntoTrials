@@ -18,8 +18,10 @@ extract_stan_posteriors(
 \item{data}{Optional. Original data frame with vector_control_product and treatment
 columns for labeling.}
 
-\item{pars}{Character vector. Parameters to extract. If NULL, uses default
-intervention parameters.}
+\item{pars}{Character vector. Parameters to extract. If NULL, uses the
+intervention parameters and the baseline parameters alpha_0, mu_0 and
+pB_0 (see \code{get_default_parameters()}). Parameters not in the model
+are skipped.}
 
 \item{n_samples}{Integer. Number of posterior samples to return.
 If NULL, returns all samples.}
@@ -33,7 +35,7 @@ A tibble with columns:
 \item sample: Sample index
 \item param: Parameter name
 \item treatment: Treatment index (NA for scalar parameters such as
-alpha_0 and mu_0)
+alpha_0, mu_0 and pB_0)
 \item value: Parameter value
 \item vector_control_product: Treatment label (if data provided)
 }
