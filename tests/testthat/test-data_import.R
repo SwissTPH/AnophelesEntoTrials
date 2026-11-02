@@ -201,6 +201,49 @@ test_that("format_eht_data uses specified control_value", {
   expect_equal(result$treatment[1], 0)
 })
 
+test_that("format_eht_data re-encodes numeric treatment when control_value is given", {
+  data <- data.frame(
+    UA = c(10, 20, 30),
+    UD = c(2, 4, 6),
+    FA = c(5, 10, 15),
+    FD = c(1, 2, 3),
+    treatment = c(1, 2, 3)
+  )
+
+  result <- format_eht_data(data, control_value = 1)
+
+  expect_identical(result$treatment, c(0L, 1L, 2L))
+})
+
+test_that("format_eht_data leaves numeric treatment unchanged without control_value", {
+  data <- data.frame(
+    UA = c(10, 20),
+    UD = c(2, 4),
+    FA = c(5, 10),
+    FD = c(1, 2),
+    treatment = c(0, 1)
+  )
+
+  result <- format_eht_data(data)
+
+  expect_equal(result$treatment, c(0, 1))
+})
+
+test_that("format_eht_data errors when control_value is not in the data", {
+  data <- data.frame(
+    UA = c(10, 20),
+    UD = c(2, 4),
+    FA = c(5, 10),
+    FD = c(1, 2),
+    treatment = c("A", "B")
+  )
+
+  expect_error(
+    format_eht_data(data, control_value = "control"),
+    "control_value 'control' not found"
+  )
+})
+
 test_that("format_eht_data errors on missing required columns", {
   data <- data.frame(
     UA = c(10, 20),

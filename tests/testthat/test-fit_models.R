@@ -185,7 +185,7 @@ test_that("get_default_parameters returns expected parameters", {
   expect_true("InitialPreprandialkillingEfficacy" %in% result)
   expect_true("alpha_0" %in% result)
   expect_true("mu_0" %in% result)
-  expect_true("pc_0" %in% result)
+  expect_true("pB_0" %in% result)
 })
 
 # ============================================================================
@@ -201,13 +201,61 @@ test_that("fit_ento_model errors on non-existent custom model", {
   )
 })
 
-test_that("fit_ento_model errors on non-existent stan_model path", {
-  data <- create_test_model_data()
+test_that("predefined models point to Stan files shipped with the package", {
+  for (model_type in list_available_models()) {
+    config <- get_model_config(model_type)
+    stan_file <- system.file("stan", config$file, package = "AnophelesEntoTrials")
+    expect_true(stan_file != "", info = model_type)
+  }
+})
 
-  expect_error(
-    fit_ento_model(data, stan_model = "/nonexistent/model.stan"),
-    "not found"
+# ============================================================================
+# Tests for treatment and day coding
+# ============================================================================
+
+test_that("check_treatment_coding accepts 0-based consecutive codes", {
+  expect_identical(check_treatment_coding(c(0, 1, 2, 1)), c(0L, 1L, 2L, 1L))
+})
+
+test_that("check_treatment_coding rejects codes not starting at 0", {
+  expect_error(check_treatment_coding(c(1, 2, 3)), "coded 0 \\(control\\)")
+})
+
+test_that("check_treatment_coding rejects gaps in codes", {
+  expect_error(check_treatment_coding(c(0, 2, 5)), "no gaps")
+})
+
+test_that("check_treatment_coding rejects labels and missing values", {
+  expect_error(check_treatment_coding(c("control", "ITN")), "integer codes")
+  expect_error(check_treatment_coding(c(0, NA, 1)), "integer codes")
+  expect_error(check_treatment_coding(c(0, 0.5, 1)), "integer codes")
+})
+
+test_that("prepare_stan_data errors on treatment not coded from 0", {
+  data <- create_test_model_data()
+  data$treatment <- data$treatment + 1
+
+  expect_error(prepare_stan_data(data), "coded 0 \\(control\\)")
+})
+
+test_that("prepare_stan_data_decay maps day to consecutive indices", {
+  data <- data.frame(
+    UA = rep(10, 6),
+    UD = rep(2, 6),
+    FA = rep(5, 6),
+    FD = rep(1, 6),
+    treatment = c(0, 0, 0, 1, 1, 1),
+    day = c(10, 20, 40, 10, 20, 40),
+    datej = c(1, 2, 3, 1, 2, 3),
+    fed = rep(6, 6),
+    total = rep(18, 6)
   )
+
+  result <- prepare_stan_data_decay(data)
+
+  expect_equal(result$d, 3)
+  expect_identical(result$day, c(1L, 2L, 3L, 1L, 2L, 3L))
+  expect_equal(result$tr, 1)
 })
 
 # ============================================================================
