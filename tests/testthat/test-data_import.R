@@ -348,6 +348,56 @@ test_that("import_ento_data handles case-insensitive column names", {
   expect_true("treatment" %in% names(result))
 })
 
+test_that("import_ento_data renames treatment_var to treatment", {
+  temp_file <- tempfile(fileext = ".csv")
+  data <- data.frame(
+    UA = c(10, 20),
+    UD = c(2, 4),
+    FA = c(5, 10),
+    FD = c(1, 2),
+    Intervention = c("control", "ITN")
+  )
+  write.csv(data, temp_file, row.names = FALSE)
+  on.exit(unlink(temp_file))
+
+  result <- import_ento_data(temp_file, treatment_var = "Intervention", quiet = TRUE)
+
+  expect_true("treatment" %in% names(result))
+  expect_false("intervention" %in% names(result))
+  expect_equal(result$treatment, c("control", "ITN"))
+})
+
+test_that("import_ento_data errors if treatment_var would duplicate treatment", {
+  temp_file <- tempfile(fileext = ".csv")
+  data <- data.frame(
+    UA = c(10, 20),
+    UD = c(2, 4),
+    FA = c(5, 10),
+    FD = c(1, 2),
+    treatment = c(0, 1),
+    Intervention = c("control", "ITN")
+  )
+  write.csv(data, temp_file, row.names = FALSE)
+  on.exit(unlink(temp_file))
+
+  expect_error(
+    import_ento_data(temp_file, treatment_var = "Intervention", quiet = TRUE),
+    "already has a 'treatment' column"
+  )
+})
+
+test_that("import_ento_data errors if treatment_var is missing", {
+  temp_file <- tempfile(fileext = ".csv")
+  data <- create_test_data()
+  write.csv(data, temp_file, row.names = FALSE)
+  on.exit(unlink(temp_file))
+
+  expect_error(
+    import_ento_data(temp_file, treatment_var = "Intervention", quiet = TRUE),
+    "Missing required columns: intervention"
+  )
+})
+
 test_that("import_ento_data allows custom required_vars", {
   temp_file <- tempfile(fileext = ".csv")
   data <- data.frame(

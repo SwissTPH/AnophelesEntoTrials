@@ -95,13 +95,16 @@ check_file_integrity <- function(file_path,
 #'
 #' @param file_path Character. Path to the data file.
 #' @param required_vars Character vector. Required columns to check.
-#' @param treatment_var Character. Name of the treatment variable.
+#'   \code{"treatment"} is replaced by \code{treatment_var}, which is always
+#'   required.
+#' @param treatment_var Character. Name of the treatment column in the file
+#'   (case-insensitive). It is renamed to \code{treatment}, the name used by
+#'   \code{\link{format_eht_data}} and the model functions.
 #' @param quiet Logical. If FALSE, print import status.
 #'
 #' @return A tibble with standardized column names and data types.
-#'   - Endpoints (UA, UD, FA, FD) are numeric.
-#'   - Treatment variable: factor (with levels sorted
-#'   alphabetically, control group as reference)
+#'   - Endpoints (ua, ud, fa, fd) are numeric.
+#'   - Treatment variable: renamed to \code{treatment}, values preserved as-is
 #'   - Other variables: preserved as-is
 #'
 #' @details
@@ -111,6 +114,7 @@ check_file_integrity <- function(file_path,
 #'   \item Reads data with appropriate reader function
 #'   \item Converts to tibble format
 #'   \item Standardizes column names to lowercase
+#'   \item Renames the treatment column to \code{treatment}
 #'   \item Coerces endpoints to numeric
 #'   \item Returns as \code{tibble}
 #' }
@@ -122,6 +126,9 @@ check_file_integrity <- function(file_path,
 #'
 #' # Import Excel file
 #' data <- import_ento_data("trial_data.xlsx")
+#'
+#' # Treatment stored in a column called "Intervention"
+#' data <- import_ento_data("trial_data.csv", treatment_var = "Intervention")
 #' }
 #'
 #' @export
@@ -129,6 +136,10 @@ import_ento_data <- function(file_path,
                             required_vars = c("UA", "UD", "FA", "FD", "treatment"),
                             treatment_var = "treatment",
                             quiet = FALSE) {
+
+  # The treatment column is checked under the name given in treatment_var
+  required_vars <- unique(c(required_vars[tolower(required_vars) != "treatment"],
+                            treatment_var))
 
   # Validate file
   file_format <- check_file_integrity(file_path, required_vars, verbose = !quiet)
@@ -150,17 +161,17 @@ import_ento_data <- function(file_path,
   # Clean names
   names(data) <- tolower(names(data))
 
-  # Ensure Treatment variable
-  if (!treatment_var %in% names(data)) {
-    # Try to find treatment variable with different case
-    possible_names <- names(data)[tolower(names(data)) == tolower(treatment_var)]
-    if (length(possible_names) > 0) {
-      names(data)[names(data) == possible_names[1]] <- treatment_var
-    } else {
-      stop("Treatment variable '", treatment_var, "' not found in data. Available columns: ",
-           paste(names(data), collapse = ", "), call. = FALSE)
-    }
+  # Rename the treatment variable to "treatment"
+  treat_idx <- which(names(data) == tolower(treatment_var))
+  if (length(treat_idx) == 0) {
+    stop("Treatment variable '", treatment_var, "' not found in data. Available columns: ",
+         paste(names(data), collapse = ", "), call. = FALSE)
   }
+  if (tolower(treatment_var) != "treatment" && "treatment" %in% names(data)) {
+    stop("Cannot rename '", treatment_var, "' to 'treatment': the data already ",
+         "has a 'treatment' column.", call. = FALSE)
+  }
+  names(data)[treat_idx[1]] <- "treatment"
 
   # Convert endpoints to numeric
   endpoint_cols <- c("ua", "ud", "fa", "fd")

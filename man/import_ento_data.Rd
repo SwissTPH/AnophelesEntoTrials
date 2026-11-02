@@ -14,18 +14,21 @@ import_ento_data(
 \arguments{
 \item{file_path}{Character. Path to the data file.}
 
-\item{required_vars}{Character vector. Required columns to check.}
+\item{required_vars}{Character vector. Required columns to check.
+\code{"treatment"} is replaced by \code{treatment_var}, which is always
+required.}
 
-\item{treatment_var}{Character. Name of the treatment variable.}
+\item{treatment_var}{Character. Name of the treatment column in the file
+(case-insensitive). It is renamed to \code{treatment}, the name used by
+\code{\link{format_eht_data}} and the model functions.}
 
 \item{quiet}{Logical. If FALSE, print import status.}
 }
 \value{
 A tibble with standardized column names and data types.
 \itemize{
-\item Endpoints (UA, UD, FA, FD) are numeric.
-\item Treatment variable: factor (with levels sorted
-alphabetically, control group as reference)
+\item Endpoints (ua, ud, fa, fd) are numeric.
+\item Treatment variable: renamed to \code{treatment}, values preserved as-is
 \item Other variables: preserved as-is
 }
 }
@@ -41,6 +44,7 @@ The import function:
 \item Reads data with appropriate reader function
 \item Converts to tibble format
 \item Standardizes column names to lowercase
+\item Renames the treatment column to \code{treatment}
 \item Coerces endpoints to numeric
 \item Returns as \code{tibble}
 }
@@ -52,6 +56,9 @@ data <- import_ento_data("ITN_data.csv")
 
 # Import Excel file
 data <- import_ento_data("trial_data.xlsx")
+
+# Treatment stored in a column called "Intervention"
+data <- import_ento_data("trial_data.csv", treatment_var = "Intervention")
 }
 
 }
