@@ -55,8 +55,8 @@ more treatment arms from the basic model, with known parameter values.
 Parameters use the same names as the Stan output, so the values used here
 can be compared directly with \code{\link{extract_stan_summary}}.
 Only the basic model (\code{model_type = "basic"}) is supported: the data
-have no time or day structure and cannot be used for the hierarchical
-decay or semifield models.
+have no time or day structure and cannot be used for the semifield
+model.
 }
 \details{
 For a treatment arm, the rates are modified as in the basic Stan model:

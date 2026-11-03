@@ -82,7 +82,6 @@ fit <- fit_ento_model(data, init = init_fn)
 
 }
 \seealso{
-\code{\link{generate_inits_decay}} for hierarchical decay model,
 \code{\link{generate_inits_semifield}} for semifield model,
 \code{\link{fit_ento_model}} for the main fitting function
 }

@@ -27,8 +27,8 @@ fit_ento_model(
 \item{data}{Data frame. Formatted data with endpoints and treatment column.
 Required columns depend on model_type (see \code{\link{list_available_models}}).}
 
-\item{model_type}{Character. Predefined model type: "basic" (default),
-"hierarchical_decay", or "semifield". Use \code{list_available_models()}
+\item{model_type}{Character. Predefined model type: "basic" (default)
+or "semifield". Use \code{list_available_models()}
 to see available options. Ignored if custom_model is provided.}
 
 \item{custom_model}{Character or NULL. Path to custom Stan model file.
@@ -57,8 +57,7 @@ or list for custom initialization.}
 
 \item{save_y_rep}{Logical. If TRUE, also save the replicated data
 \code{y_rep} used by \code{\link{posterior_predictive_check}}
-(default: FALSE, as it can make the fit large). Basic and semifield
-models only.}
+(default: FALSE, as it can make the fit large).}
 
 \item{seed}{Integer. Random seed for reproducibility.}
 
@@ -77,12 +76,6 @@ A \code{stanfit} object with MCMC samples. Parameters depend on model:
 \item KillingDuringHostSeeking: Mortality during approach
 \item alpha_0, mu_0, pC_0: Baseline parameters (attack rate, mortality, blood-feeding survival)
 }
-
-\strong{Hierarchical decay model (additional):}
-\itemize{
-\item beta, kappa: Weibull decay parameters
-\item L: Half-life of intervention effect
-}
 }
 \description{
 High-level wrapper function to fit entomological hut trial data using Stan.
@@ -96,7 +89,6 @@ Supports predefined models and custom Stan models.
 Use \code{model_type} to select from predefined models:
 \itemize{
 \item \code{"basic"}: Standard multinomial model for EHT data
-\item \code{"hierarchical_decay"}: Includes temporal Weibull decay
 \item \code{"semifield"}: For matched semifield experiments with a
 spatial repellent (advanced)
 }
@@ -119,12 +111,6 @@ this should match your model's parameter block.
 \dontrun{
 # Basic usage with default model
 fit <- fit_ento_model(data = my_data)
-
-# Use hierarchical decay model for longitudinal data
-fit_decay <- fit_ento_model(
-  data = longitudinal_data,
-  model_type = "hierarchical_decay"
-)
 
 # With custom Stan model and custom parameters
 fit_custom <- fit_ento_model(

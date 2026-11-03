@@ -19,15 +19,14 @@ This vignette demonstrates the complete workflow for analyzing entomological tri
 
 ## Overview
 
-The package provides three predefined Stan models for different experimental designs:
+The package provides two predefined Stan models for different experimental designs:
 
 | Model | `model_type` | Experimental design | Reference |
 |-------|--------------|---------------------|-----------|
 | Basic model | `"basic"` | Experimental hut trials (EHT) | Champagne et al. (2025) |
-| Hierarchical decay model | `"hierarchical_decay"` | Longitudinal EHT with temporal decay of effects | In preparation |
 | Semifield model | `"semifield"` | Matched semifield experiments with a spatial repellent | Denz et al. (2021) |
 
-The workflow is first shown with the basic model; the other models are used in the same way (see [Other Predefined Models](#other-predefined-models)).
+The workflow is first shown with the basic model; the semifield model is used in the same way (see [Fitting the Semifield Model](#fitting-the-semifield-model)).
 
 ## Model Descriptions
 
@@ -92,10 +91,6 @@ The spatial repellent modifies them as in the basic model:
 - Pre-prandial killing: $\mu_k^{(1)} = \mu_k + \kappa \alpha_k$
 
 The outputs `HostAvailabilityReduction` and `KillingDuringHostSeeking` are $\pi$ and $\kappa$, and `alpha_H0`, `mu0` are the mean control rates.
-
-### Hierarchical Decay Model
-
-This model is under development and will be described once published.
 
 ## Step 1: Load the Package
 
@@ -281,11 +276,9 @@ ppc$summary
 plot_posterior_predictive(ppc)
 ```
 
-## Other Predefined Models
+## Fitting the Semifield Model
 
-The other models follow the same workflow, with a different `model_type` and the additional columns listed in Step 1.
-
-### Semifield Model
+The semifield model follows the same workflow, with `model_type = "semifield"` and the data listed in Step 1.
 
 ```{r fit-semifield-model}
 # Outcome matrices of matched nights (one row per night, same order in both arms):
@@ -307,41 +300,6 @@ extract_stan_summary(fit_semifield)
 # Posterior predictive check
 ppc_semifield <- posterior_predictive_check(fit_semifield, data = semifield_data)
 plot_posterior_predictive(ppc_semifield)
-```
-
-### Hierarchical Decay Model
-
-For longitudinal data with temporal decay effects:
-
-```{r fit-decay-model}
-# Prepare longitudinal data (requires additional columns)
-longitudinal_data <- data.frame(
-  UA = sample(10:50, 200, replace = TRUE),
-  UD = sample(0:10, 200, replace = TRUE),
-  FA = sample(5:30, 200, replace = TRUE),
-  FD = sample(0:5, 200, replace = TRUE),
-  treatment = rep(c(0, 1), each = 100),
-  day = rep(1:10, 20),        # Day index (1 to D)
-  datej = rep(1:100, 2),      # Days since treatment start
-  fed = NA,                    # Will be calculated
-  total = NA                   # Will be calculated
-)
-longitudinal_data$fed <- longitudinal_data$FA + longitudinal_data$FD
-longitudinal_data$total <- rowSums(longitudinal_data[, c("UA", "UD", "FA", "FD")])
-
-# Fit hierarchical decay model
-fit_decay <- fit_ento_model(
-  data = longitudinal_data,
-  model_type = "hierarchical_decay",
-  iter = 8000,
-  warmup = 4000,
-  chains = 3,
-  prior_settings = list(
-    priorsigma_mean_logrates = 6,
-    hierarchy = 1
-  ),
-  seed = 123
-)
 ```
 
 ## Troubleshooting and Initialization
@@ -382,7 +340,7 @@ MCMC sampling requires starting values (initial values) for all parameters. The 
 
 When you call `fit_ento_model()` with `init = "auto"` (the default), the package:
 
-1. **Creates an init function** using `generate_inits_basic()`, `generate_inits_decay()`, or `generate_inits_semifield()` depending on your model type
+1. **Creates an init function** using `generate_inits_basic()` or `generate_inits_semifield()` depending on your model type
 2. **Stan calls this function once per chain** to get different starting points
 3. **Each chain starts from a different random location** in parameter space
 

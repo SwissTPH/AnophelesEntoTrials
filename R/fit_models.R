@@ -36,19 +36,6 @@ list_available_models <- function(details = FALSE) {
                      "alpha_0", "mu_0", "pC_0"),
       use_case = "Standard experimental hut trial data with 4 outcome categories"
     ),
-    hierarchical_decay = list(
-      name = "hierarchical_decay",
-      file = "hierarchial_time_decay.stan",
-      description = "Hierarchical model with Weibull time decay",
-      required_data = c("UA", "UD", "FA", "FD", "treatment", "day", "datej", "fed", "total"),
-      parameters = c("PostprandialKilling",
-                     "PreprandialKilling",
-                     "HostAvailabilityReduction",
-                     "KillingDuringHostSeeking",
-                     "beta", "kappa", "L",
-                     "alpha_0", "mu_0"),
-      use_case = "Longitudinal EHT data with temporal decay of intervention effects"
-    ),
     semifield = list(
       name = "semifield",
       file = "semifield_repellent.stan",
@@ -84,7 +71,7 @@ list_available_models <- function(details = FALSE) {
 #'
 #' Returns configuration for a predefined model type.
 #'
-#' @param model_type Character. One of "basic", "hierarchical_decay", "semifield".
+#' @param model_type Character. One of "basic", "semifield".
 #'
 #' @return List with model file path, default parameters, and data preparation function.
 #'
@@ -101,17 +88,6 @@ get_model_config <- function(model_type) {
                "alpha_0", "mu_0", "pC_0"),
       prepare_data = "prepare_stan_data",
       init_generator = "generate_inits_basic"
-    ),
-    hierarchical_decay = list(
-      file = "hierarchial_time_decay.stan",
-      pars = c("PostprandialKilling",
-               "KillingDuringHostSeeking",
-               "HostAvailabilityReduction",
-               "PreprandialKilling",
-               "beta", "kappa", "L",
-               "alpha_0", "mu_0"),
-      prepare_data = "prepare_stan_data_decay",
-      init_generator = "generate_inits_decay"
     ),
     semifield = list(
       file = "semifield_repellent.stan",
@@ -140,8 +116,8 @@ get_model_config <- function(model_type) {
 #'
 #' @param data Data frame. Formatted data with endpoints and treatment column.
 #'   Required columns depend on model_type (see \code{\link{list_available_models}}).
-#' @param model_type Character. Predefined model type: "basic" (default),
-#'   "hierarchical_decay", or "semifield". Use \code{list_available_models()}
+#' @param model_type Character. Predefined model type: "basic" (default)
+#'   or "semifield". Use \code{list_available_models()}
 #'   to see available options. Ignored if custom_model is provided.
 #' @param custom_model Character or NULL. Path to custom Stan model file.
 #'   If provided, overrides model_type.
@@ -159,8 +135,7 @@ get_model_config <- function(model_type) {
 #' @param output_path Character. Path to save fitted model (.rds).
 #' @param save_y_rep Logical. If TRUE, also save the replicated data
 #'   \code{y_rep} used by \code{\link{posterior_predictive_check}}
-#'   (default: FALSE, as it can make the fit large). Basic and semifield
-#'   models only.
+#'   (default: FALSE, as it can make the fit large).
 #' @param seed Integer. Random seed for reproducibility.
 #' @param verbose Logical. Print fitting progress? (default: TRUE)
 #' @param ... Additional arguments passed to \code{rstan::stan}.
@@ -176,19 +151,12 @@ get_model_config <- function(model_type) {
 #'   \item alpha_0, mu_0, pC_0: Baseline parameters (attack rate, mortality, blood-feeding survival)
 #' }
 #'
-#' **Hierarchical decay model (additional):**
-#' \itemize{
-#'   \item beta, kappa: Weibull decay parameters
-#'   \item L: Half-life of intervention effect
-#' }
-#'
 #' @details
 #' ## Predefined Models
 #'
 #' Use \code{model_type} to select from predefined models:
 #' \itemize{
 #'   \item \code{"basic"}: Standard multinomial model for EHT data
-#'   \item \code{"hierarchical_decay"}: Includes temporal Weibull decay
 #'   \item \code{"semifield"}: For matched semifield experiments with a
 #'     spatial repellent (advanced)
 #' }
@@ -208,12 +176,6 @@ get_model_config <- function(model_type) {
 #' \dontrun{
 #' # Basic usage with default model
 #' fit <- fit_ento_model(data = my_data)
-#'
-#' # Use hierarchical decay model for longitudinal data
-#' fit_decay <- fit_ento_model(
-#'   data = longitudinal_data,
-#'   model_type = "hierarchical_decay"
-#' )
 #'
 #' # With custom Stan model and custom parameters
 #' fit_custom <- fit_ento_model(
@@ -287,7 +249,6 @@ fit_ento_model <- function(data,
       # Use model-specific data preparation
       stan_data <- switch(model_type,
         "basic" = prepare_stan_data(data),
-        "hierarchical_decay" = prepare_stan_data_decay(data, prior_settings),
         "semifield" = prepare_stan_data_semifield(data, prior_settings),
         prepare_stan_data(data)  # fallback
       )
@@ -316,9 +277,6 @@ fit_ento_model <- function(data,
   if (save_y_rep) {
     if (is.null(custom_model) && model_type == "semifield") {
       pars <- unique(c(pars, "y0_rep", "y1_rep"))
-    } else if (is.null(custom_model) && model_type != "basic") {
-      stop("save_y_rep is only available for the basic and semifield models for now.",
-           call. = FALSE)
     } else {
       pars <- unique(c(pars, "y_rep"))
     }
@@ -329,10 +287,6 @@ fit_ento_model <- function(data,
     if (!is.null(model_config)) {
       init_fun <- switch(model_type,
         "basic" = generate_inits_basic(stan_data$tr + 1),
-        "hierarchical_decay" = generate_inits_decay(
-          nb_treat = stan_data$tr + 1,
-          nb_days = stan_data$d
-        ),
         "semifield" = generate_inits_semifield(stan_data$n),
         generate_inits_basic(stan_data$tr + 1)  # fallback
       )
@@ -507,103 +461,6 @@ check_treatment_coding <- function(treatment) {
   as.integer(treatment)
 }
 
-#' Prepare data for hierarchical decay Stan model
-#'
-#' Converts longitudinal EHT data to Stan-compatible list for the
-#' hierarchical time decay model.
-#'
-#' @param data Formatted EHT data frame with required columns:
-#'   UA, UD, FA, FD, treatment, day, datej, fed, total.
-#'   Treatment must be coded 0 (control), 1, ..., tr. Day values are
-#'   mapped to consecutive indices 1, ..., d in sorted order.
-#' @param prior_settings List. Optional prior hyperparameters:
-#'   \itemize{
-#'     \item priorsigma_mean_logrates: Prior sigma for log rates (default: 6)
-#'     \item hierarchy: Variance for hierarchical effects (default: 1)
-#'   }
-#'
-#' @return List with elements for hierarchical decay Stan model.
-#'
-#' @export
-prepare_stan_data_decay <- function(data, prior_settings = NULL) {
-
-  # Get column names (case-insensitive)
-  col_names <- names(data)
-  col_names_lower <- tolower(col_names)
-
-  # Find required columns
-  get_col <- function(target) {
-    col_names[col_names_lower == tolower(target)]
-  }
-
-  # Validate required columns
-  required <- c("UA", "UD", "FA", "FD", "treatment", "day", "datej", "fed", "total")
-  missing <- c()
-  for (req in required) {
-    if (length(get_col(req)) == 0) missing <- c(missing, req)
-  }
-
-  if (length(missing) > 0) {
-    stop("Missing required columns for hierarchical_decay model: ",
-         paste(missing, collapse = ", "), call. = FALSE)
-  }
-
-  # Extract data
-  ua_col <- get_col("UA")
-  ud_col <- get_col("UD")
-  fa_col <- get_col("FA")
-  fd_col <- get_col("FD")
-
-  # Ensure treatment is coded 0 (control), 1, ..., tr
-  treatment_vec <- check_treatment_coding(data[[get_col("treatment")]])
-
-  # Day is a grouping index in Stan, so map it to 1, ..., d
-  day_raw <- data[[get_col("day")]]
-  if (anyNA(day_raw)) {
-    stop("Column 'day' contains missing values.", call. = FALSE)
-  }
-  day_vec <- match(day_raw, sort(unique(day_raw)))
-
-  # Number of treatments and days
-  nb_treat <- length(unique(treatment_vec)) - 1
-  nb_days <- length(unique(day_vec))
-
-  # Create y matrix (UA, F=FA+FD, UD) - 3 columns for this model
-  y_matrix <- matrix(
-    c(data[[ua_col]],
-      data[[get_col("FA")]] + data[[get_col("FD")]],
-      data[[ud_col]]),
-    ncol = 3
-  )
-
-  # Default prior settings
-  defaults <- list(
-    priorsigma_mean_logrates = 6,
-    hierarchy = 1
-  )
-
-  if (!is.null(prior_settings)) {
-    defaults[names(prior_settings)] <- prior_settings
-  }
-
-  stan_data <- list(
-    N = nrow(data),
-    tr = nb_treat,
-    d = nb_days,
-    total = as.integer(data[[get_col("total")]]),
-    datej = as.integer(data[[get_col("datej")]]),
-    day = day_vec,
-    treat = treatment_vec,
-    fed = as.integer(data[[get_col("fed")]]),
-    FA = as.integer(data[[get_col("FA")]]),
-    y = y_matrix,
-    priorsigma_mean_logrates = defaults$priorsigma_mean_logrates,
-    hierarchy = defaults$hierarchy
-  )
-
-  return(stan_data)
-}
-
 #' Prepare data for semifield Stan model
 #'
 #' Converts semifield experiment data to Stan-compatible list for the matched
@@ -765,7 +622,6 @@ prepare_stan_data_semifield <- function(data, prior_settings = NULL) {
 #' }
 #'
 #' @seealso
-#' \code{\link{generate_inits_decay}} for hierarchical decay model,
 #' \code{\link{generate_inits_semifield}} for semifield model,
 #' \code{\link{fit_ento_model}} for the main fitting function
 #'
@@ -781,68 +637,6 @@ generate_inits_basic <- function(nb_treat) {
       a = stats::rnorm(1, 0, 1),  # log(alpha_0) - baseline attack rate
       m = stats::rnorm(1, 0, 1),  # log(mu_0) - baseline mortality
       b = stats::rnorm(1, 0, 1)   # logit(pC_0) - baseline blood-feeding survival
-    )
-  }
-}
-
-#' Generate initial values for hierarchical decay model
-#'
-#' Creates random initial values for MCMC chains for the hierarchical decay model.
-#' This model includes Weibull decay parameters for temporal effects.
-#'
-#' @param nb_treat Number of treatments (including control). Parameters are
-#'   vectors of length `nb_treat`.
-#' @param nb_days Number of days in the study. Used to size hierarchical
-#'   random effects. If NULL, defaults to 10.
-#'
-#' @return A function that generates a named list of initial values:
-#'   \itemize{
-#'     \item \code{PostprandialKilling}: Vector (nb_treat)
-#'     \item \code{KillingDuringHostSeeking}: Vector (nb_treat)
-#'     \item \code{HostAvailabilityReduction}: Vector (nb_treat)
-#'     \item \code{beta}: Weibull scale parameter for decay (nb_treat)
-#'     \item \code{kappa}: Weibull shape parameter for decay (nb_treat)
-#'     \item \code{a}, \code{m}: Log-scale baseline rates
-#'     \item \code{r_prob_surviving_feeding_d}: Logit-scale survival
-#'     \item \code{sigma_a}, \code{sigma_m}, \code{sigma_prob_surviving_feeding_d}:
-#'       Hierarchical standard deviations
-#'     \item \code{phi}, \code{psi}, \code{omega_prob_surviving_feeding_d}:
-#'       Day-level random effects (nb_days)
-#'   }
-#'
-#' @details
-#' The hierarchical decay model adds:
-#' - **Weibull decay**: Effect decays as `exp(-(beta * t)^kappa)` where t is
-#'   days since treatment. Half-life L = (log(2)^(1/kappa)) / beta.
-#' - **Day-level hierarchy**: Random effects phi, psi, omega capture day-to-day
-#'   variation in baseline rates.
-#'
-#' @seealso \code{\link{generate_inits_basic}}, \code{\link{fit_ento_model}}
-#'
-#' @export
-generate_inits_decay <- function(nb_treat, nb_days = NULL) {
-  if (is.null(nb_days)) nb_days <- 10  # default
-  function() {
-    list(
-      # Treatment-level efficacy parameters
-      PostprandialKilling = stats::runif(nb_treat, 0.1, 0.9),
-      KillingDuringHostSeeking = stats::runif(nb_treat, 0.1, 0.9),
-      HostAvailabilityReduction = stats::runif(nb_treat, 0.1, 0.9),
-      # Weibull decay parameters
-      beta = stats::runif(nb_treat, 0.001, 0.1),
-      kappa = stats::runif(nb_treat, 0.5, 2),
-      # Baseline rate parameters (log/logit scale)
-      a = stats::rnorm(1, 0, 1),
-      m = stats::rnorm(1, 0, 1),
-      r_prob_surviving_feeding_d = stats::rnorm(1, 0, 1),
-      # Hierarchical standard deviations
-      sigma_a = abs(stats::rnorm(1, 0, 0.5)),
-      sigma_m = abs(stats::rnorm(1, 0, 0.5)),
-      sigma_prob_surviving_feeding_d = abs(stats::rnorm(1, 0, 0.5)),
-      # Day-level random effects (standard normal)
-      phi = stats::rnorm(nb_days, 0, 1),
-      psi = stats::rnorm(nb_days, 0, 1),
-      omega_prob_surviving_feeding_d = stats::rnorm(nb_days, 0, 1)
     )
   }
 }

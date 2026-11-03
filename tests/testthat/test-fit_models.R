@@ -238,26 +238,6 @@ test_that("prepare_stan_data errors on treatment not coded from 0", {
   expect_error(prepare_stan_data(data), "coded 0 \\(control\\)")
 })
 
-test_that("prepare_stan_data_decay maps day to consecutive indices", {
-  data <- data.frame(
-    UA = rep(10, 6),
-    UD = rep(2, 6),
-    FA = rep(5, 6),
-    FD = rep(1, 6),
-    treatment = c(0, 0, 0, 1, 1, 1),
-    day = c(10, 20, 40, 10, 20, 40),
-    datej = c(1, 2, 3, 1, 2, 3),
-    fed = rep(6, 6),
-    total = rep(18, 6)
-  )
-
-  result <- prepare_stan_data_decay(data)
-
-  expect_equal(result$d, 3)
-  expect_identical(result$day, c(1L, 2L, 3L, 1L, 2L, 3L))
-  expect_equal(result$tr, 1)
-})
-
 # ============================================================================
 # Tests for the semifield model
 # ============================================================================

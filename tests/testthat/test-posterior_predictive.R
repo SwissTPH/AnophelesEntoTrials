@@ -69,17 +69,3 @@ test_that("ppc_summarise works with other outcomes (semifield)", {
   expect_equal(result$summary$observed[result$summary$treatment == 1],
                c(1, 1, 1, 2, 15) / 20)
 })
-
-test_that("save_y_rep is not available for the hierarchical decay model", {
-  decay_data <- data.frame(
-    UA = rep(10, 4), UD = rep(2, 4), FA = rep(5, 4), FD = rep(1, 4),
-    treatment = c(0, 0, 1, 1), day = c(1, 2, 1, 2), datej = c(1, 2, 1, 2),
-    fed = rep(6, 4), total = rep(18, 4)
-  )
-
-  expect_error(
-    fit_ento_model(decay_data, model_type = "hierarchical_decay", save_y_rep = TRUE,
-                   verbose = FALSE),
-    "only available for the basic and semifield models"
-  )
-})

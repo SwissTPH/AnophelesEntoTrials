@@ -34,8 +34,8 @@ eht_outcome_probs <- function(alpha, mu, pC) {
 #' Parameters use the same names as the Stan output, so the values used here
 #' can be compared directly with \code{\link{extract_stan_summary}}.
 #' Only the basic model (\code{model_type = "basic"}) is supported: the data
-#' have no time or day structure and cannot be used for the hierarchical
-#' decay or semifield models.
+#' have no time or day structure and cannot be used for the semifield
+#' model.
 #'
 #' @param n_obs Integer. Number of observations (hut-nights) per arm.
 #' @param n_mosquitoes Integer. Number of mosquitoes per observation.
