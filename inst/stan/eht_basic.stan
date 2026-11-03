@@ -20,8 +20,8 @@ functions{
 data {
   int<lower=0> N;                // number of observations
   int<lower=0> tr;               // number of insecticides
-  int treat[N];                  // treatment group index for each obs
-  int<lower=0> y[N,4];           // multinomial outcomes per experiment
+  array[N] int treat;            // treatment group index for each obs
+  array[N, 4] int<lower=0> y;    // multinomial outcomes per experiment
   int<lower=0, upper=1> use_likelihood;   // 1 = normal fit, 0 = prior predictive
 }
 

@@ -26,7 +26,7 @@ list_available_models <- function(details = FALSE) {
   models <- list(
     basic = list(
       name = "basic",
-      file = "mosq_foraging_mcmc_full_fit_priorpred.stan",
+      file = "eht_basic.stan",
       description = "Standard multinomial EHT model",
       required_data = c("UA", "UD", "FA", "FD", "treatment"),
       parameters = c("InitialPostprandialkillingEfficacy",
@@ -93,7 +93,7 @@ get_model_config <- function(model_type) {
 
   configs <- list(
     basic = list(
-      file = "mosq_foraging_mcmc_full_fit_priorpred.stan",
+      file = "eht_basic.stan",
       pars = c("InitialPostprandialkillingEfficacy",
                "KillingDuringHostSeeking",
                "InitialRepellencyRate",

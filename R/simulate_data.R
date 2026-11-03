@@ -7,7 +7,7 @@
 #'
 #' Probabilities of the four hut trial outcomes for one arm, using the same
 #' Markov chain formulas as the basic Stan model
-#' (\code{mosq_foraging_mcmc_full_fit_priorpred.stan}).
+#' (\code{eht_basic.stan}).
 #'
 #' @param alpha Numeric. Attack rate of the arm.
 #' @param mu Numeric. Mortality rate of the arm.

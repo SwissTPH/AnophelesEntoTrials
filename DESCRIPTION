@@ -20,7 +20,7 @@ Imports:
     readr,
     readxl,
     rlang,
-    rstan,
+    rstan (>= 2.26),
     stats,
     tibble,
     tools

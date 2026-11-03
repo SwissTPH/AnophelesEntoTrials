@@ -19,6 +19,6 @@ Named numeric vector of probabilities for UA, UD, FA and FD.
 \description{
 Probabilities of the four hut trial outcomes for one arm, using the same
 Markov chain formulas as the basic Stan model
-(\code{mosq_foraging_mcmc_full_fit_priorpred.stan}).
+(\code{eht_basic.stan}).
 }
 \keyword{internal}

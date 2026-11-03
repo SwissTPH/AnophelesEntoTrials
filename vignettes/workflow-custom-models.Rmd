@@ -309,7 +309,7 @@ You can also extend the predefined models by copying and modifying them.
 ```{r get-model-path}
 # Find the package's Stan model file
 basic_model_path <- system.file("stan",
-                                "mosq_foraging_mcmc_full_fit_priorpred.stan",
+                                "eht_basic.stan",
                                 package = "AnophelesEntoTrials")
 
 # Read and modify

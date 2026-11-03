@@ -270,7 +270,7 @@ test_that("full workflow with simulated data works", {
   skip_if_not_installed("rstan")
 
   # Check if Stan model exists
-  stan_file <- system.file("stan", "mosq_foraging_mcmc_full_fit_priorpred.stan",
+  stan_file <- system.file("stan", "eht_basic.stan",
                            package = "AnophelesEntoTrials")
   skip_if(stan_file == "", "Default Stan model not found")
 
