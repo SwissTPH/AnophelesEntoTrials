@@ -27,12 +27,15 @@ eht_outcome_probs <- function(alpha, mu, pB) {
     FD = p_fed * (1 - pB))
 }
 
-#' Simulate entomological hut trial data
+#' Simulate entomological hut trial data from the basic model
 #'
 #' Simulates hut trial outcomes (UA, UD, FA, FD) for a control arm and one or
 #' more treatment arms from the basic model, with known parameter values.
 #' Parameters use the same names as the Stan output, so the values used here
 #' can be compared directly with \code{\link{extract_stan_summary}}.
+#' Only the basic model (\code{model_type = "basic"}) is supported: the data
+#' have no time or day structure and cannot be used for the hierarchical
+#' decay or semifield models.
 #'
 #' @param n_obs Integer. Number of observations (hut-nights) per arm.
 #' @param n_mosquitoes Integer. Number of mosquitoes per observation.

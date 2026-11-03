@@ -2,7 +2,7 @@
 % Please edit documentation in R/simulate_data.R
 \name{simulate_eht_data}
 \alias{simulate_eht_data}
-\title{Simulate entomological hut trial data}
+\title{Simulate entomological hut trial data from the basic model}
 \usage{
 simulate_eht_data(
   n_obs = 100,
@@ -54,6 +54,9 @@ Simulates hut trial outcomes (UA, UD, FA, FD) for a control arm and one or
 more treatment arms from the basic model, with known parameter values.
 Parameters use the same names as the Stan output, so the values used here
 can be compared directly with \code{\link{extract_stan_summary}}.
+Only the basic model (\code{model_type = "basic"}) is supported: the data
+have no time or day structure and cannot be used for the hierarchical
+decay or semifield models.
 }
 \details{
 For a treatment arm, the rates are modified as in the basic Stan model:
