@@ -15,8 +15,10 @@ posterior_predictive_check(
 \item{stan_fit}{A stanfit object from \code{\link{fit_ento_model}}, fitted
 with \code{save_y_rep = TRUE}.}
 
-\item{data}{The data used to fit the model (formatted EHT data, same rows
-in the same order).}
+\item{data}{The data used to fit the model, same rows in the same order:
+formatted EHT data for the basic model, or the list with y0 and y1 for
+the semifield model (arms labelled "Control" and "Intervention"; the
+trap outcome T is left out when there is no trap).}
 
 \item{n_draws}{Integer. Number of posterior draws to use (random subset).}
 
@@ -27,7 +29,8 @@ Default is c(0.025, 0.975) for a 95\% interval.}
 A list with:
 \itemize{
 \item summary: A tibble with one row per arm and outcome: treatment,
-outcome (UA, UD, FA, FD), observed proportion, median, lower and
+outcome (UA, UD, FA, FD for the basic model; H1, H2, H3, H4, T, L for
+the semifield model), observed proportion, median, lower and
 upper quantiles of the replicated proportions, and p_value, the share
 of replicates greater than or equal to the observed proportion
 (values close to 0 or 1 indicate that the model does not reproduce
@@ -39,10 +42,9 @@ Both include vector_control_product if the data have this column.
 }
 \description{
 Compares the observed outcome proportions of each arm with those of data
-replicated from the fitted model. The replicated data (\code{y_rep}) are
-simulated in Stan from each posterior draw, with the same number of
-mosquitoes per observation as in the data. Currently available for the
-basic model.
+replicated from the fitted model. The replicated data are simulated in Stan
+from each posterior draw, with the same number of mosquitoes per
+observation as in the data. Available for the basic and semifield models.
 }
 \examples{
 \dontrun{

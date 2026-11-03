@@ -159,7 +159,8 @@ get_model_config <- function(model_type) {
 #' @param output_path Character. Path to save fitted model (.rds).
 #' @param save_y_rep Logical. If TRUE, also save the replicated data
 #'   \code{y_rep} used by \code{\link{posterior_predictive_check}}
-#'   (default: FALSE, as it can make the fit large). Basic model only.
+#'   (default: FALSE, as it can make the fit large). Basic and semifield
+#'   models only.
 #' @param seed Integer. Random seed for reproducibility.
 #' @param verbose Logical. Print fitting progress? (default: TRUE)
 #' @param ... Additional arguments passed to \code{rstan::stan}.
@@ -313,11 +314,14 @@ fit_ento_model <- function(data,
 
   # Replicated data for posterior predictive checks
   if (save_y_rep) {
-    if (is.null(custom_model) && model_type != "basic") {
-      stop("save_y_rep is only available for the basic model for now.",
+    if (is.null(custom_model) && model_type == "semifield") {
+      pars <- unique(c(pars, "y0_rep", "y1_rep"))
+    } else if (is.null(custom_model) && model_type != "basic") {
+      stop("save_y_rep is only available for the basic and semifield models for now.",
            call. = FALSE)
+    } else {
+      pars <- unique(c(pars, "y_rep"))
     }
-    pars <- unique(c(pars, "y_rep"))
   }
 
   # Generate initial values
@@ -929,10 +933,10 @@ check_stan_warnings <- function(stan_fit, verbose = TRUE) {
   }
 
   # Check R-hat
-  # Saved quantities only; replicated data (y_rep) are not parameters, so
-  # they are left out
+  # Saved quantities only; replicated data (y_rep, y0_rep, y1_rep) are not
+  # parameters, so they are left out
   summary_fit <- rstan::summary(
-    stan_fit, pars = setdiff(stan_fit@sim$pars_oi, "y_rep")
+    stan_fit, pars = setdiff(stan_fit@sim$pars_oi, c("y_rep", "y0_rep", "y1_rep"))
   )$summary
   max_rhat <- max(summary_fit[, "Rhat"], na.rm = TRUE)
 

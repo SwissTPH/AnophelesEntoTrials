@@ -54,13 +54,32 @@ test_that("plot_posterior_predictive returns a ggplot", {
   expect_s3_class(p, "ggplot")
 })
 
-test_that("save_y_rep is only available for the basic model", {
-  semifield_data <- list(y0 = matrix(1, nrow = 2, ncol = 5),
-                         y1 = matrix(1, nrow = 2, ncol = 5))
+test_that("ppc_summarise works with other outcomes (semifield)", {
+  # 1 night per arm, outcomes H1, H2, H3, H4, L
+  y <- matrix(c(4, 3, 2, 6, 5,
+                1, 1, 1, 2, 15), ncol = 5, byrow = TRUE)
+  y_rep <- array(0, dim = c(1, 2, 5))
+  y_rep[1, , ] <- y
+  outcomes <- c("H1", "H2", "H3", "H4", "L")
+
+  result <- ppc_summarise(y, y_rep, treat = c(0, 1), outcomes = outcomes)
+
+  expect_equal(nrow(result$summary), 10)         # 2 arms x 5 outcomes
+  expect_equal(levels(result$summary$outcome), outcomes)
+  expect_equal(result$summary$observed[result$summary$treatment == 1],
+               c(1, 1, 1, 2, 15) / 20)
+})
+
+test_that("save_y_rep is not available for the hierarchical decay model", {
+  decay_data <- data.frame(
+    UA = rep(10, 4), UD = rep(2, 4), FA = rep(5, 4), FD = rep(1, 4),
+    treatment = c(0, 0, 1, 1), day = c(1, 2, 1, 2), datej = c(1, 2, 1, 2),
+    fed = rep(6, 4), total = rep(18, 4)
+  )
 
   expect_error(
-    fit_ento_model(semifield_data, model_type = "semifield", save_y_rep = TRUE,
+    fit_ento_model(decay_data, model_type = "hierarchical_decay", save_y_rep = TRUE,
                    verbose = FALSE),
-    "only available for the basic model"
+    "only available for the basic and semifield models"
   )
 })

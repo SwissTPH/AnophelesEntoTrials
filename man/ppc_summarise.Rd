@@ -4,7 +4,14 @@
 \alias{ppc_summarise}
 \title{Summarise observed and replicated outcome proportions}
 \usage{
-ppc_summarise(y, y_rep, treat, probs = c(0.025, 0.975), labels = NULL)
+ppc_summarise(
+  y,
+  y_rep,
+  treat,
+  probs = c(0.025, 0.975),
+  labels = NULL,
+  outcomes = c("UA", "UD", "FA", "FD")
+)
 }
 \arguments{
 \item{y}{Matrix of observed counts (observations x outcomes).}
@@ -16,6 +23,8 @@ ppc_summarise(y, y_rep, treat, probs = c(0.025, 0.975), labels = NULL)
 \item{probs}{Numeric vector. Quantiles of the replicated proportions.}
 
 \item{labels}{Optional data frame with treatment and vector_control_product.}
+
+\item{outcomes}{Character vector. Names of the outcomes (columns of y).}
 }
 \value{
 A list with the summary and replicates tibbles.

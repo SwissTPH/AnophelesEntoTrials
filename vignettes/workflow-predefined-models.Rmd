@@ -285,6 +285,30 @@ plot_posterior_predictive(ppc)
 
 The other models follow the same workflow, with a different `model_type` and the additional columns listed in Step 1.
 
+### Semifield Model
+
+```{r fit-semifield-model}
+# Outcome matrices of matched nights (one row per night, same order in both arms):
+# H1, H2, H3, H4 (landings in hours 1, 2, 3 and 4-12) and L (lost);
+# without a trap, the T column can be left out
+semifield_data <- list(
+  y0 = control_counts,    # control arm
+  y1 = repellent_counts   # repellent arm
+)
+
+fit_semifield <- fit_ento_model(
+  data = semifield_data,
+  model_type = "semifield",
+  save_y_rep = TRUE
+)
+
+extract_stan_summary(fit_semifield)
+
+# Posterior predictive check
+ppc_semifield <- posterior_predictive_check(fit_semifield, data = semifield_data)
+plot_posterior_predictive(ppc_semifield)
+```
+
 ### Hierarchical Decay Model
 
 For longitudinal data with temporal decay effects:

@@ -57,7 +57,8 @@ or list for custom initialization.}
 
 \item{save_y_rep}{Logical. If TRUE, also save the replicated data
 \code{y_rep} used by \code{\link{posterior_predictive_check}}
-(default: FALSE, as it can make the fit large). Basic model only.}
+(default: FALSE, as it can make the fit large). Basic and semifield
+models only.}
 
 \item{seed}{Integer. Random seed for reproducibility.}
 

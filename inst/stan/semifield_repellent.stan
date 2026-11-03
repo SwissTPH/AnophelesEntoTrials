@@ -123,9 +123,17 @@ generated quantities {
   real<lower=0>  mu0; //
   real<lower=0> alpha_H1; //
   real<lower=0>  mu1; //
+  // replicated data for posterior predictive checks
+  array[n, K] int y0_rep;
+  array[n, K] int y1_rep;
     //transform: means of rates
   alpha_H0 = exp(a + sigma_a^2/2);
   mu0 = exp(m + sigma_m^2/2);
   alpha_H1 = (1 -HostAvailabilityReduction) *alpha_H0;
   mu1 = mu0 + KillingDuringHostSeeking * alpha_H0;
+  // same probabilities as in the model block, same number of mosquitoes per night
+  for (i in 1:n){
+    y0_rep[i] = multinomial_rng(theta0[,i], sum(y0[i]));
+    y1_rep[i] = multinomial_rng(theta1[,i], sum(y1[i]));
+  }
 }
