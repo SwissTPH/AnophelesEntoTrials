@@ -1,3 +1,7 @@
+// Champagne et al. (2025) Nature Communications 16:11162, https://doi.org/10.1038/s41467-025-66130-y
+// Stan model for experimental hut trials (EHT), control and intervention arms
+// Outcomes per observation: unfed alive (UA), unfed dead (UD), fed alive (FA), fed dead (FD)
+
 functions{
   // probabilities in the Markov chain model for mosquito foraging behaviour
   real P_UA(real alpha, real mu){
