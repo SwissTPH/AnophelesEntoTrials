@@ -16,9 +16,9 @@ random effects. If NULL, defaults to 10.}
 \value{
 A function that generates a named list of initial values:
 \itemize{
-\item \code{InitialPostprandialkillingEfficacy}: Vector (nb_treat)
+\item \code{PostprandialKilling}: Vector (nb_treat)
 \item \code{KillingDuringHostSeeking}: Vector (nb_treat)
-\item \code{InitialRepellencyRate}: Vector (nb_treat)
+\item \code{HostAvailabilityReduction}: Vector (nb_treat)
 \item \code{beta}: Weibull scale parameter for decay (nb_treat)
 \item \code{kappa}: Weibull shape parameter for decay (nb_treat)
 \item \code{a}, \code{m}: Log-scale baseline rates

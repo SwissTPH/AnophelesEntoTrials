@@ -13,7 +13,7 @@ random effects.}
 \value{
 A function that generates a named list of initial values:
 \itemize{
-\item \code{InitialRepellencyRate}: Repellency (pi in the article)
+\item \code{HostAvailabilityReduction}: Reduction in host availability (pi in the article)
 \item \code{KillingDuringHostSeeking}: Killing/disarming during host
 seeking (kappa in the article)
 \item \code{a}, \code{m}: Log-scale baseline rates
@@ -33,7 +33,7 @@ The semifield model estimates, per night:
 }
 
 The intervention effects are modeled as
-\code{alpha_H1 = (1 - InitialRepellencyRate) * alpha_H0} and
+\code{alpha_H1 = (1 - HostAvailabilityReduction) * alpha_H0} and
 \code{mu1 = mu0 + KillingDuringHostSeeking * alpha_H0}.
 }
 \seealso{

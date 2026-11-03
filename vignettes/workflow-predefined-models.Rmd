@@ -19,14 +19,83 @@ This vignette demonstrates the complete workflow for analyzing entomological tri
 
 ## Overview
 
-(for more details about parameters and model details, see below)
 The package provides three predefined Stan models for different experimental designs:
 
-1. **Basic model** (`"basic"`): Standard multinomial model for typical EHT data
-2. **Hierarchical decay model** (`"hierarchical_decay"`): For longitudinal data with temporal decay
-3. **Semifield model** (`"semifield"`): For matched semifield experiments with a spatial repellent, with time-to-event outcomes
+| Model | `model_type` | Experimental design | Reference |
+|-------|--------------|---------------------|-----------|
+| Basic model | `"basic"` | Experimental hut trials (EHT) | Champagne et al. (2025) |
+| Hierarchical decay model | `"hierarchical_decay"` | Longitudinal EHT with temporal decay of effects | In preparation |
+| Semifield model | `"semifield"` | Matched semifield experiments with a spatial repellent | Denz et al. (2021) |
 
 The workflow is first shown with the basic model; the other models are used in the same way (see [Other Predefined Models](#other-predefined-models)).
+
+## Model Descriptions
+
+Both published models are based on a Markov chain model of the mosquito feeding cycle (Chitnis et al. 2008): during the experiment, a host-seeking mosquito either finds a host (rate $\alpha$) or dies (rate $\mu$).
+
+### Basic Model
+
+For each arm $i$ (control $i = 0$ or intervention), the probabilities of the four outcomes observed at the end of the night are:
+
+$$p_{UA,i} = e^{-(\alpha_i + \mu_i)}$$
+$$p_{UD,i} = \left(1 - e^{-(\alpha_i + \mu_i)}\right) \frac{\mu_i}{\alpha_i + \mu_i}$$
+$$p_{FA,i} = \left(1 - e^{-(\alpha_i + \mu_i)}\right) \frac{\alpha_i}{\alpha_i + \mu_i} \, p_{C,i}$$
+$$p_{FD,i} = \left(1 - e^{-(\alpha_i + \mu_i)}\right) \frac{\alpha_i}{\alpha_i + \mu_i} \, (1 - p_{C,i})$$
+
+where $p_{C,i}$ is the probability of surviving after feeding (the product $P_C P_D P_E$ of Chitnis et al. 2008, not $P_B$, the probability of biting). The intervention modifies the control rates as follows:
+
+- Reduction in host availability: $\alpha_i = \alpha_0 (1 - \pi_i)$
+- Pre-prandial killing: $\mu_i = \mu_0 + \alpha_0 \kappa_i$
+- Post-prandial killing: $p_{C,i} = p_{C,0} (1 - \xi_i)$
+
+The counts $(UA, UD, FA, FD)$ of each observation (hut-night) follow a multinomial distribution with these probabilities.
+
+| Parameter | Symbol | Interpretation | Range |
+|-----------|--------|----------------|-------|
+| HostAvailabilityReduction | π | Reduction in host availability | 0-1 |
+| KillingDuringHostSeeking | κ | Pre-prandial killing, relative to the attack rate $\alpha_0$ | ≥0 |
+| PostprandialKilling | ξ | Post-prandial killing | 0-1 |
+| PreprandialKilling | - | Derived: pre-prandial killing efficacy as defined in Champagne et al. (2025) | 0-1 |
+
+Earlier versions of the package named these parameters `InitialRepellencyRate`, `InitialPostprandialkillingEfficacy` and `InitialPreprandialkillingEfficacy`.
+
+Baseline parameters:
+- `alpha_0`: Baseline attack rate (exp(a) in Stan)
+- `mu_0`: Baseline mortality rate (exp(m) in Stan)
+- `pC_0`: Baseline probability of surviving blood-feeding (inv_logit(b) in Stan)
+
+### Semifield Model
+
+In the semifield experiments of Denz et al. (2021), control and intervention arms are run on matched nights, and mosquitoes are collected by human landing catch (HLC) every hour. The outcomes of each night are the landings in hours 1, 2, 3 and 4-12 ($H_1, \dots, H_4$), the trap catch ($T$, absent for a repellent alone) and the mosquitoes lost to follow-up ($L$). Hourly landings make it possible to separate the reduction in host availability from the killing effect.
+
+The probability of still searching after $t$ hours, and of landing on the host within $t$ hours, are:
+
+$$P_A(t) = e^{-(\alpha + \mu) t}$$
+$$P_H(t) = \left(1 - P_A(t)\right) \frac{\alpha}{\alpha + \mu}$$
+
+The outcome probabilities are:
+
+$$p_{H_1} = P_H(1)$$
+$$p_{H_2} = P_A(1) \, P_H(1)$$
+$$p_{H_3} = P_A(1)^2 \, P_H(1)$$
+$$p_{H_4} = P_A(1)^3 \, P_H(9)$$
+$$p_L = 1 - p_{H_1} - p_{H_2} - p_{H_3} - p_{H_4}$$
+
+The rates vary between nights $k$:
+
+$$\alpha_k = e^{a + \phi_k \sigma_a}$$
+$$\mu_k = e^{m + \psi_k \sigma_m}$$
+
+The spatial repellent modifies them as in the basic model:
+
+- Reduction in host availability: $\alpha_k^{(1)} = (1 - \pi) \alpha_k$
+- Pre-prandial killing: $\mu_k^{(1)} = \mu_k + \kappa \alpha_k$
+
+The outputs `HostAvailabilityReduction` and `KillingDuringHostSeeking` are $\pi$ and $\kappa$, and `alpha_H0`, `mu0` are the mean control rates.
+
+### Hierarchical Decay Model
+
+This model is under development and will be described once published.
 
 ## Step 1: Load the Package
 
@@ -81,13 +150,13 @@ For the purpose of this vignette, we simulate a synthetic dataset from the basic
 true_baseline <- c(
   alpha_0 = 0.15,   # baseline attack rate
   mu_0 = 0.14,      # baseline mortality rate
-  pB_0 = 0.92       # baseline survival probability after blood-feeding
+  pC_0 = 0.92       # baseline survival probability after blood-feeding
 )
 true_effects <- data.frame(
   vector_control_product = "NewITN",
-  InitialRepellencyRate = 0.69,               # repellency
+  HostAvailabilityReduction = 0.69,           # reduction in host availability
   KillingDuringHostSeeking = 3.8,             # pre-prandial killing multiplier
-  InitialPostprandialkillingEfficacy = 0.52   # post-prandial killing
+  PostprandialKilling = 0.52   # post-prandial killing
 )  # add rows to simulate several treatment arms
 
 # Simulate 100 hut-nights per arm with 10 mosquitoes each (see ?simulate_eht_data)
@@ -98,7 +167,7 @@ simulated_data <- simulate_eht_data(
   n_mosquitoes = n_mosquitoes,
   alpha_0 = true_baseline[["alpha_0"]],
   mu_0 = true_baseline[["mu_0"]],
-  pB_0 = true_baseline[["pB_0"]],
+  pC_0 = true_baseline[["pC_0"]],
   treatments = true_effects,
   seed = 42
 )
@@ -119,6 +188,7 @@ fit_basic <- fit_ento_model(
   warmup = 1000,
   chains = 2,
   seed = 123,
+  save_y_rep = TRUE,  # keep replicated data for the posterior predictive check
   refresh = 0  # passed to rstan: hide sampling progress
 )
 ```
@@ -201,65 +271,15 @@ ggplot(posterior_samples, aes(x = value)) +
 
 ### Posterior Predictive Check
 
-To check that the fitted model reproduces the data, we simulate replicate datasets from posterior draws and compare their outcome proportions with the observed ones (red lines).
+To check that the fitted model reproduces the data, we compare the observed outcome proportions (red lines) with those of datasets replicated from posterior draws. This requires fitting with `save_y_rep = TRUE`.
 
 ```{r posterior-predictive-check, eval = TRUE, fig.width = 7, fig.height = 4}
-draws <- rstan::extract(fit_basic)
-endpoints <- c("UA", "UD", "FA", "FD")
-
-# Proportion of each outcome per product
-outcome_props <- function(d) {
-  sums <- rowsum(as.matrix(d[, endpoints]), d$vector_control_product)
-  props <- sums / rowSums(sums)
-  data.frame(vector_control_product = rownames(props)[row(props)],
-             outcome = colnames(props)[col(props)],
-             proportion = as.vector(props))
-}
-
-# One replicate dataset per posterior draw (here 200 draws), with the same
-# design as the data
 set.seed(1)
-replicates <- do.call(rbind, lapply(sample(length(draws$lp__), 200), function(i) {
-  outcome_props(simulate_eht_data(
-    n_obs = n_obs,
-    n_mosquitoes = n_mosquitoes,
-    alpha_0 = draws$alpha_0[i],
-    mu_0 = draws$mu_0[i],
-    pB_0 = draws$pB_0[i],
-    treatments = data.frame(
-      vector_control_product = true_effects$vector_control_product,
-      InitialRepellencyRate = draws$InitialRepellencyRate[i, -1],
-      KillingDuringHostSeeking = draws$KillingDuringHostSeeking[i, -1],
-      InitialPostprandialkillingEfficacy = draws$InitialPostprandialkillingEfficacy[i, -1]
-    )
-  ))
-}))
+ppc <- posterior_predictive_check(fit_basic, data = eht_data, n_draws = 200)
+ppc$summary
 
-ggplot(replicates, aes(x = proportion)) +
-  geom_histogram(bins = 30, fill = "grey70") +
-  geom_vline(data = outcome_props(eht_data), aes(xintercept = proportion),
-             colour = "red") +
-  facet_grid(vector_control_product ~ outcome, scales = "free_x") +
-  theme_minimal() +
-  labs(title = "Posterior Predictive Check", x = "Proportion of mosquitoes",
-       y = "Replicates")
+plot_posterior_predictive(ppc)
 ```
-
-## Interpreting Parameters
-
-The basic model estimates the following intervention parameters:
-
-| Parameter | Symbol | Interpretation | Range |
-|-----------|--------|----------------|-------|
-| InitialRepellencyRate | π | Proportion of mosquitoes deterred from entering | 0-1 |
-| KillingDuringHostSeeking | κ | Additional mortality during approach (multiplier) | ≥0 |
-| InitialPostprandialkillingEfficacy | ξ | Proportion killed after blood-feeding | 0-1 |
-| InitialPreprandialkillingEfficacy | - | Derived: overall pre-feeding killing | 0-1 |
-
-Baseline parameters:
-- `alpha_0`: Baseline attack rate (exp(a) in Stan)
-- `mu_0`: Baseline mortality rate (exp(m) in Stan)
-- `pB_0`: Baseline probability of surviving blood-feeding (inv_logit(b) in Stan)
 
 ## Other Predefined Models
 
@@ -373,12 +393,12 @@ You can provide your own init function for more control:
 # Custom init function with specific starting values
 my_inits <- function() {
   list(
-    InitialPostprandialkillingEfficacy = c(0.1, 0.5),  # control, treatment
+    PostprandialKilling = c(0.1, 0.5),  # control, treatment
     KillingDuringHostSeeking = c(0.1, 0.5),
-    InitialRepellencyRate = c(0.1, 0.5),
+    HostAvailabilityReduction = c(0.1, 0.5),
     a = -2,  # log(alpha_0) ≈ log(0.14) = -2
     m = -2,  # log(mu_0) ≈ log(0.14) = -2
-    b = 2    # logit(pB_0) ≈ logit(0.88) = 2
+    b = 2    # logit(pC_0) ≈ logit(0.88) = 2
   )
 }
 
@@ -398,9 +418,24 @@ The Stan models use transformed scales for baseline parameters:
 |-------------|----------------|----------------|---------------|
 | `alpha_0` | `a` | `alpha_0 = exp(a)` | a ∈ (-4, 0) |
 | `mu_0` | `m` | `mu_0 = exp(m)` | m ∈ (-4, 0) |
-| `pB_0` | `b` | `pB_0 = inv_logit(b)` | b ∈ (-2, 4) |
+| `pC_0` | `b` | `pC_0 = inv_logit(b)` | b ∈ (-2, 4) |
 
 When providing custom inits, specify values on the **transformed scale** (a, m, b) not the natural scale.
+
+## Assumptions and Limitations
+
+- Huts and hut entry are not modelled: $\pi$ is a reduction in host availability, not a reduction in hut entry.
+- Pre-prandial killing uses the scaled definition $\mu_i = \mu_0 + \alpha_0 \kappa_i$; the absolute additional mortality is $\alpha_0 \kappa_i$. There is currently no evidence base to choose between the two definitions, and the choice affects predictions.
+- The baseline rates ($\alpha_0$, $\mu_0$) are estimated under experimental conditions and need not reflect field conditions.
+- The basic model does not include disarming (mosquitoes prevented from feeding without being killed).
+- In the semifield model, $\kappa$ combines killing and disarming, which can only be separated with additional experiments. Post-prandial killing is not estimated: it requires a separate experiment on the mortality of mosquitoes caught by HLC.
+- The semifield model assumes the experimental schedule of Denz et al. (2021): HLC in hours 1, 2, 3 and 4-12 of a 12-hour night.
+
+## References
+
+- Champagne C, Lemant J, et al. (2025). Cascades of effectiveness of next-generation insecticide-treated nets against malaria, from entomological trials to real-life conditions. *Nature Communications* 16:11162. https://doi.org/10.1038/s41467-025-66130-y
+- Chitnis N, Smith T, Steketee R (2008). A mathematical model for the dynamics of malaria in mosquitoes feeding on a heterogeneous host population. *Journal of Biological Dynamics* 2(3):259-285. https://doi.org/10.1080/17513750701769857
+- Denz A, Njoroge MM, et al. (2021). Predicting the impact of outdoor vector control interventions on malaria transmission intensity from semi-field studies. *Parasites & Vectors* 14:64. https://doi.org/10.1186/s13071-020-04560-x
 
 ## Next Steps
 

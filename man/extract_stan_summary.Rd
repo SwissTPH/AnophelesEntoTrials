@@ -20,7 +20,7 @@ columns for labeling.}
 
 \item{pars}{Character vector. Parameters to extract. If NULL, uses the
 intervention parameters and the baseline parameters alpha_0, mu_0 and
-pB_0 (see \code{get_default_parameters()}). Parameters not in the model
+pC_0 (see \code{get_default_parameters()}). Parameters not in the model
 are skipped.}
 
 \item{probs}{Numeric vector. Quantiles for credible intervals.
@@ -33,7 +33,7 @@ A tibble with columns:
 \itemize{
 \item param: Parameter name
 \item treatment: Treatment index (1, 2, ...; NA for scalar parameters
-such as alpha_0, mu_0 and pB_0)
+such as alpha_0, mu_0 and pC_0)
 \item mean: Posterior mean
 \item lower: Lower credible interval bound
 \item upper: Upper credible interval bound

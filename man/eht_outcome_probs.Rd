@@ -4,14 +4,14 @@
 \alias{eht_outcome_probs}
 \title{Outcome probabilities of the basic EHT model}
 \usage{
-eht_outcome_probs(alpha, mu, pB)
+eht_outcome_probs(alpha, mu, pC)
 }
 \arguments{
 \item{alpha}{Numeric. Attack rate of the arm.}
 
 \item{mu}{Numeric. Mortality rate of the arm.}
 
-\item{pB}{Numeric. Probability of surviving after blood-feeding.}
+\item{pC}{Numeric. Probability of surviving after blood-feeding.}
 }
 \value{
 Named numeric vector of probabilities for UA, UD, FA and FD.

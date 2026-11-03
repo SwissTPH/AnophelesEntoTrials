@@ -34,9 +34,9 @@ data {
 // The parameters accepted by the model-
 parameters{
    // our priors per insecticide
-  vector<lower=0, upper=1>[tr+1] InitialPostprandialkillingEfficacy;
+  vector<lower=0, upper=1>[tr+1] PostprandialKilling;
   vector<lower=0>[tr+1] KillingDuringHostSeeking;
-  vector<lower=0, upper=1>[tr+1] InitialRepellencyRate;
+  vector<lower=0, upper=1>[tr+1] HostAvailabilityReduction;
   vector<lower=0>[tr+1] beta;
   vector<lower=0>[tr+1] kappa;
 
@@ -75,9 +75,9 @@ model{
   real decay;
 
 // Priors
-  target += uniform_lpdf(InitialPostprandialkillingEfficacy | 0, 1);
+  target += uniform_lpdf(PostprandialKilling | 0, 1);
   target += uniform_lpdf(KillingDuringHostSeeking | 0, 1);
-  target += uniform_lpdf(InitialRepellencyRate | 0, 1);
+  target += uniform_lpdf(HostAvailabilityReduction | 0, 1);
  // target += normal_lpdf(log_RA| 0, 0.001);
  target += normal_lpdf(beta| 0, 1);
  target += normal_lpdf(kappa| 1, 1);
@@ -109,11 +109,11 @@ model{
     }
     else{
    decay= exp(-(beta[treat[i]+1]*datej[i])^kappa[treat[i]+1]);
-    pB[i]   = control_prob_surviving_feeding[day[i]]*(1-InitialPostprandialkillingEfficacy[treat[i]+1]*decay);
+    pB[i]   = control_prob_surviving_feeding[day[i]]*(1-PostprandialKilling[treat[i]+1]*decay);
     #' removed for all theta
-    theta[1,i] = (P_A((1 -InitialRepellencyRate[treat[i]+1]*decay)*alpha_H_k0[day[i]], mu_k0[day[i]] + KillingDuringHostSeeking[treat[i]+1]*decay * alpha_H_k0[day[i]]));
-    theta[2,i] = (P_F((1 -InitialRepellencyRate[treat[i]+1]*decay)*alpha_H_k0[day[i]],  mu_k0[day[i]] + KillingDuringHostSeeking[treat[i]+1]*decay * alpha_H_k0[day[i]]));
-    theta[3,i] = (P_M((1 -InitialRepellencyRate[treat[i]+1]*decay)*alpha_H_k0[day[i]],  mu_k0[day[i]] + KillingDuringHostSeeking[treat[i]+1]*decay * alpha_H_k0[day[i]]));
+    theta[1,i] = (P_A((1 -HostAvailabilityReduction[treat[i]+1]*decay)*alpha_H_k0[day[i]], mu_k0[day[i]] + KillingDuringHostSeeking[treat[i]+1]*decay * alpha_H_k0[day[i]]));
+    theta[2,i] = (P_F((1 -HostAvailabilityReduction[treat[i]+1]*decay)*alpha_H_k0[day[i]],  mu_k0[day[i]] + KillingDuringHostSeeking[treat[i]+1]*decay * alpha_H_k0[day[i]]));
+    theta[3,i] = (P_M((1 -HostAvailabilityReduction[treat[i]+1]*decay)*alpha_H_k0[day[i]],  mu_k0[day[i]] + KillingDuringHostSeeking[treat[i]+1]*decay * alpha_H_k0[day[i]]));
     }
   target += binomial_lpmf(FA[i] | fed[i], pB[i]);
   target += multinomial_lpmf( y[i,] |theta[,i]);
@@ -127,7 +127,7 @@ generated quantities {
 
 
 vector<lower=0>[tr+1] L;
-vector[tr+1] InitialPreprandialkillingEfficacy;
+vector[tr+1] PreprandialKilling;
 vector[tr+1] InitialRepellentEfficacy;
 
 // declare: means of rates
@@ -143,13 +143,13 @@ vector<lower=0, upper=1>[tr+1] PAtt; //
 //transform: means of rates
 alpha_0 = exp(a + sigma_a^2/2);
 mu_0 = exp(m + sigma_m^2/2);
-alpha_i = (1 -InitialRepellencyRate) *alpha_0;
+alpha_i = (1 -HostAvailabilityReduction) *alpha_0;
 mu_i = mu_0 + KillingDuringHostSeeking * alpha_0;
 Pfc=(1-exp(-alpha_0-mu_0))*alpha_0/(alpha_0+mu_0);
 PAttc=1-exp(-alpha_0-mu_0);
 
 L[1]=1;
-InitialPreprandialkillingEfficacy[1]=0;
+PreprandialKilling[1]=0;
 Pf[1]=Pfc;
 PAtt[1]=PAttc;
 
@@ -157,7 +157,7 @@ for (j in 1:tr) {
   L[j+1]=(log(2)^(1/kappa[j+1]))/beta[j+1];
   Pf[j+1]=(1-exp(-alpha_i[j+1] -mu_i[j+1])) * alpha_i[j+1]/(alpha_i[j+1]+mu_i[j+1]);
   PAtt[j+1]=1-exp(-alpha_i[j+1] -mu_i[j+1]);
-  InitialPreprandialkillingEfficacy[j+1]=1-(Pf[j+1]/Pfc);
+  PreprandialKilling[j+1]=1-(Pf[j+1]/Pfc);
   InitialRepellentEfficacy[j+1]=1-(PAtt[j+1]/PAttc);
 }
 }

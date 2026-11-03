@@ -9,9 +9,9 @@ simulate_eht_data(
   n_mosquitoes = 10,
   alpha_0 = 0.15,
   mu_0 = 0.14,
-  pB_0 = 0.92,
-  treatments = data.frame(vector_control_product = "NewITN", InitialRepellencyRate =
-    0.69, KillingDuringHostSeeking = 3.8, InitialPostprandialkillingEfficacy = 0.52),
+  pC_0 = 0.92,
+  treatments = data.frame(vector_control_product = "NewITN", HostAvailabilityReduction =
+    0.69, KillingDuringHostSeeking = 3.8, PostprandialKilling = 0.52),
   control_name = "Control",
   seed = NULL
 )
@@ -25,16 +25,16 @@ simulate_eht_data(
 
 \item{mu_0}{Numeric. Baseline mortality rate (> 0).}
 
-\item{pB_0}{Numeric. Baseline probability of surviving after
+\item{pC_0}{Numeric. Baseline probability of surviving after
 blood-feeding (between 0 and 1).}
 
 \item{treatments}{Data frame with one row per treatment arm and columns:
 \itemize{
 \item vector_control_product: Name of the product
-\item InitialRepellencyRate: Repellency (between 0 and 1)
+\item HostAvailabilityReduction: Reduction in host availability (between 0 and 1)
 \item KillingDuringHostSeeking: Additional mortality during host
 seeking, as a multiple of alpha_0 (>= 0)
-\item InitialPostprandialkillingEfficacy: Post-prandial killing
+\item PostprandialKilling: Post-prandial killing
 (between 0 and 1)
 }}
 
@@ -61,12 +61,12 @@ decay or semifield models.
 \details{
 For a treatment arm, the rates are modified as in the basic Stan model:
 \itemize{
-\item attack rate: \code{(1 - InitialRepellencyRate) * alpha_0}
+\item attack rate: \code{(1 - HostAvailabilityReduction) * alpha_0}
 \item mortality rate: \code{mu_0 + KillingDuringHostSeeking * alpha_0}
 \item survival after feeding:
-\code{pB_0 * (1 - InitialPostprandialkillingEfficacy)}
+\code{pC_0 * (1 - PostprandialKilling)}
 }
-The control arm uses \code{alpha_0}, \code{mu_0} and \code{pB_0}. Each
+The control arm uses \code{alpha_0}, \code{mu_0} and \code{pC_0}. Each
 observation is a multinomial draw of \code{n_mosquitoes} over the four
 outcome probabilities.
 }
@@ -79,9 +79,9 @@ head(sim)
 sim <- simulate_eht_data(
   treatments = data.frame(
     vector_control_product = c("Standard_ITN", "New_ITN"),
-    InitialRepellencyRate = c(0.4, 0.69),
+    HostAvailabilityReduction = c(0.4, 0.69),
     KillingDuringHostSeeking = c(1.5, 3.8),
-    InitialPostprandialkillingEfficacy = c(0.3, 0.52)
+    PostprandialKilling = c(0.3, 0.52)
   ),
   seed = 42
 )

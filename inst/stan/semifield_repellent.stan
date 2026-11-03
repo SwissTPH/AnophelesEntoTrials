@@ -2,7 +2,7 @@
 // Stan model for EACoMoPP semifield experiments, matched control and intervention arms
 // alpha_H in the article is alpha here and alpha_T in the article is beta here
 // Trap availability (beta0, beta1) is set as data: 0 for a spatial repellent ("push") only
-// InitialRepellencyRate is pi and KillingDuringHostSeeking is kappa in the article
+// HostAvailabilityReduction is pi and KillingDuringHostSeeking is kappa in the article
 
 functions{
   // probabilities in the continuous-time Markov chain model for mosquito foraging behaviour
@@ -50,7 +50,7 @@ real<lower=0> priorsigma_pikappa; // sigma of the priors on pi and kappa
 real<lower=0> hierarchy; // variance for phi and psi, limit --> 0 means eliminating hierarchy
 }
 parameters{
-  real<upper=1> InitialRepellencyRate;
+  real<upper=1> HostAvailabilityReduction;
   real<lower=0> KillingDuringHostSeeking; // forcing > 0 for now since otherwise problem!!
   real a;
   real m;
@@ -73,7 +73,7 @@ transformed parameters{
   alpha_H_k0 = exp(a + phi *sigma_a);
   mu_k0 = exp(m + psi *sigma_m);
   // transform and define: intervention rates
-  alpha_H_k1 = (1 -InitialRepellencyRate) *alpha_H_k0;
+  alpha_H_k1 = (1 -HostAvailabilityReduction) *alpha_H_k0;
   mu_k1 = mu_k0 + KillingDuringHostSeeking * alpha_H_k0;
   // define probabilities of multinomial model for semifield experiment of control arm
     // be careful: one column is one replicate!!!
@@ -98,7 +98,7 @@ model{
   vector[6] theta1_i;
 //priors
   // priors on effect parameters
-  target += lognormal_lpdf(1 -InitialRepellencyRate | 0, priorsigma_pikappa);
+  target += lognormal_lpdf(1 -HostAvailabilityReduction | 0, priorsigma_pikappa);
   target += 2* cauchy_lpdf(KillingDuringHostSeeking | 0,priorsigma_pikappa);
   // priors on means of logrates
   a ~ normal(0,priorsigma_mean_logrates);
@@ -126,6 +126,6 @@ generated quantities {
     //transform: means of rates
   alpha_H0 = exp(a + sigma_a^2/2);
   mu0 = exp(m + sigma_m^2/2);
-  alpha_H1 = (1 -InitialRepellencyRate) *alpha_H0;
+  alpha_H1 = (1 -HostAvailabilityReduction) *alpha_H0;
   mu1 = mu0 + KillingDuringHostSeeking * alpha_H0;
 }

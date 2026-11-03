@@ -11,20 +11,20 @@
 #'
 #' @param alpha Numeric. Attack rate of the arm.
 #' @param mu Numeric. Mortality rate of the arm.
-#' @param pB Numeric. Probability of surviving after blood-feeding.
+#' @param pC Numeric. Probability of surviving after blood-feeding.
 #'
 #' @return Named numeric vector of probabilities for UA, UD, FA and FD.
 #'
 #' @keywords internal
-eht_outcome_probs <- function(alpha, mu, pB) {
+eht_outcome_probs <- function(alpha, mu, pC) {
   p_ua <- exp(-(alpha + mu))
   p_fed <- (1 - p_ua) * alpha / (alpha + mu)
   p_ud <- (1 - p_ua) * mu / (alpha + mu)
 
   c(UA = p_ua,
     UD = p_ud,
-    FA = p_fed * pB,
-    FD = p_fed * (1 - pB))
+    FA = p_fed * pC,
+    FD = p_fed * (1 - pC))
 }
 
 #' Simulate entomological hut trial data from the basic model
@@ -41,15 +41,15 @@ eht_outcome_probs <- function(alpha, mu, pB) {
 #' @param n_mosquitoes Integer. Number of mosquitoes per observation.
 #' @param alpha_0 Numeric. Baseline attack rate (> 0).
 #' @param mu_0 Numeric. Baseline mortality rate (> 0).
-#' @param pB_0 Numeric. Baseline probability of surviving after
+#' @param pC_0 Numeric. Baseline probability of surviving after
 #'   blood-feeding (between 0 and 1).
 #' @param treatments Data frame with one row per treatment arm and columns:
 #'   \itemize{
 #'     \item vector_control_product: Name of the product
-#'     \item InitialRepellencyRate: Repellency (between 0 and 1)
+#'     \item HostAvailabilityReduction: Reduction in host availability (between 0 and 1)
 #'     \item KillingDuringHostSeeking: Additional mortality during host
 #'       seeking, as a multiple of alpha_0 (>= 0)
-#'     \item InitialPostprandialkillingEfficacy: Post-prandial killing
+#'     \item PostprandialKilling: Post-prandial killing
 #'       (between 0 and 1)
 #'   }
 #' @param control_name Character. Product name of the control arm.
@@ -64,12 +64,12 @@ eht_outcome_probs <- function(alpha, mu, pB) {
 #' @details
 #' For a treatment arm, the rates are modified as in the basic Stan model:
 #' \itemize{
-#'   \item attack rate: \code{(1 - InitialRepellencyRate) * alpha_0}
+#'   \item attack rate: \code{(1 - HostAvailabilityReduction) * alpha_0}
 #'   \item mortality rate: \code{mu_0 + KillingDuringHostSeeking * alpha_0}
 #'   \item survival after feeding:
-#'     \code{pB_0 * (1 - InitialPostprandialkillingEfficacy)}
+#'     \code{pC_0 * (1 - PostprandialKilling)}
 #' }
-#' The control arm uses \code{alpha_0}, \code{mu_0} and \code{pB_0}. Each
+#' The control arm uses \code{alpha_0}, \code{mu_0} and \code{pC_0}. Each
 #' observation is a multinomial draw of \code{n_mosquitoes} over the four
 #' outcome probabilities.
 #'
@@ -82,9 +82,9 @@ eht_outcome_probs <- function(alpha, mu, pB) {
 #' sim <- simulate_eht_data(
 #'   treatments = data.frame(
 #'     vector_control_product = c("Standard_ITN", "New_ITN"),
-#'     InitialRepellencyRate = c(0.4, 0.69),
+#'     HostAvailabilityReduction = c(0.4, 0.69),
 #'     KillingDuringHostSeeking = c(1.5, 3.8),
-#'     InitialPostprandialkillingEfficacy = c(0.3, 0.52)
+#'     PostprandialKilling = c(0.3, 0.52)
 #'   ),
 #'   seed = 42
 #' )
@@ -95,12 +95,12 @@ simulate_eht_data <- function(n_obs = 100,
                               n_mosquitoes = 10,
                               alpha_0 = 0.15,
                               mu_0 = 0.14,
-                              pB_0 = 0.92,
+                              pC_0 = 0.92,
                               treatments = data.frame(
                                 vector_control_product = "NewITN",
-                                InitialRepellencyRate = 0.69,
+                                HostAvailabilityReduction = 0.69,
                                 KillingDuringHostSeeking = 3.8,
-                                InitialPostprandialkillingEfficacy = 0.52
+                                PostprandialKilling = 0.52
                               ),
                               control_name = "Control",
                               seed = NULL) {
@@ -121,15 +121,15 @@ simulate_eht_data <- function(n_obs = 100,
   if (!is.numeric(mu_0) || length(mu_0) != 1 || !isTRUE(mu_0 > 0)) {
     stop("`mu_0` must be a single number > 0.", call. = FALSE)
   }
-  if (!is.numeric(pB_0) || length(pB_0) != 1 ||
-      !isTRUE(pB_0 >= 0 && pB_0 <= 1)) {
-    stop("`pB_0` must be a single number between 0 and 1.", call. = FALSE)
+  if (!is.numeric(pC_0) || length(pC_0) != 1 ||
+      !isTRUE(pC_0 >= 0 && pC_0 <= 1)) {
+    stop("`pC_0` must be a single number between 0 and 1.", call. = FALSE)
   }
 
   treatments <- as.data.frame(treatments)
-  effect_cols <- c("InitialRepellencyRate",
+  effect_cols <- c("HostAvailabilityReduction",
                    "KillingDuringHostSeeking",
-                   "InitialPostprandialkillingEfficacy")
+                   "PostprandialKilling")
   missing_cols <- setdiff(c("vector_control_product", effect_cols), names(treatments))
   if (length(missing_cols) > 0) {
     stop("`treatments` is missing columns: ",
@@ -144,15 +144,15 @@ simulate_eht_data <- function(n_obs = 100,
            call. = FALSE)
     }
   }
-  if (any(treatments$InitialRepellencyRate < 0 | treatments$InitialRepellencyRate > 1)) {
-    stop("`InitialRepellencyRate` must be between 0 and 1.", call. = FALSE)
+  if (any(treatments$HostAvailabilityReduction < 0 | treatments$HostAvailabilityReduction > 1)) {
+    stop("`HostAvailabilityReduction` must be between 0 and 1.", call. = FALSE)
   }
   if (any(treatments$KillingDuringHostSeeking < 0)) {
     stop("`KillingDuringHostSeeking` must be >= 0.", call. = FALSE)
   }
-  if (any(treatments$InitialPostprandialkillingEfficacy < 0 |
-          treatments$InitialPostprandialkillingEfficacy > 1)) {
-    stop("`InitialPostprandialkillingEfficacy` must be between 0 and 1.",
+  if (any(treatments$PostprandialKilling < 0 |
+          treatments$PostprandialKilling > 1)) {
+    stop("`PostprandialKilling` must be between 0 and 1.",
          call. = FALSE)
   }
 
@@ -164,17 +164,17 @@ simulate_eht_data <- function(n_obs = 100,
   arms <- data.frame(
     vector_control_product = c(control_name,
                                as.character(treatments$vector_control_product)),
-    InitialRepellencyRate = c(0, treatments$InitialRepellencyRate),
+    HostAvailabilityReduction = c(0, treatments$HostAvailabilityReduction),
     KillingDuringHostSeeking = c(0, treatments$KillingDuringHostSeeking),
-    InitialPostprandialkillingEfficacy = c(0, treatments$InitialPostprandialkillingEfficacy),
+    PostprandialKilling = c(0, treatments$PostprandialKilling),
     stringsAsFactors = FALSE
   )
 
   sims <- lapply(seq_len(nrow(arms)), function(j) {
     probs <- eht_outcome_probs(
-      alpha = (1 - arms$InitialRepellencyRate[j]) * alpha_0,
+      alpha = (1 - arms$HostAvailabilityReduction[j]) * alpha_0,
       mu = mu_0 + arms$KillingDuringHostSeeking[j] * alpha_0,
-      pB = pB_0 * (1 - arms$InitialPostprandialkillingEfficacy[j])
+      pC = pC_0 * (1 - arms$PostprandialKilling[j])
     )
     counts <- t(stats::rmultinom(n_obs, n_mosquitoes, probs))
     colnames(counts) <- names(probs)

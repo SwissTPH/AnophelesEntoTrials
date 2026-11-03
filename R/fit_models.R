@@ -29,11 +29,11 @@ list_available_models <- function(details = FALSE) {
       file = "eht_basic.stan",
       description = "Standard multinomial EHT model",
       required_data = c("UA", "UD", "FA", "FD", "treatment"),
-      parameters = c("InitialPostprandialkillingEfficacy",
-                     "InitialPreprandialkillingEfficacy",
-                     "InitialRepellencyRate",
+      parameters = c("PostprandialKilling",
+                     "PreprandialKilling",
+                     "HostAvailabilityReduction",
                      "KillingDuringHostSeeking",
-                     "alpha_0", "mu_0", "pB_0"),
+                     "alpha_0", "mu_0", "pC_0"),
       use_case = "Standard experimental hut trial data with 4 outcome categories"
     ),
     hierarchical_decay = list(
@@ -41,9 +41,9 @@ list_available_models <- function(details = FALSE) {
       file = "hierarchial_time_decay.stan",
       description = "Hierarchical model with Weibull time decay",
       required_data = c("UA", "UD", "FA", "FD", "treatment", "day", "datej", "fed", "total"),
-      parameters = c("InitialPostprandialkillingEfficacy",
-                     "InitialPreprandialkillingEfficacy",
-                     "InitialRepellencyRate",
+      parameters = c("PostprandialKilling",
+                     "PreprandialKilling",
+                     "HostAvailabilityReduction",
                      "KillingDuringHostSeeking",
                      "beta", "kappa", "L",
                      "alpha_0", "mu_0"),
@@ -54,7 +54,7 @@ list_available_models <- function(details = FALSE) {
       file = "semifield_repellent.stan",
       description = "Matched semifield model for a spatial repellent (Denz et al. 2021)",
       required_data = c("y0", "y1"),
-      parameters = c("InitialRepellencyRate", "KillingDuringHostSeeking",
+      parameters = c("HostAvailabilityReduction", "KillingDuringHostSeeking",
                      "alpha_H0", "mu0", "alpha_H1", "mu1"),
       use_case = "Semifield experiments with time-to-event outcomes (H1-H4, T, L)"
     )
@@ -94,20 +94,20 @@ get_model_config <- function(model_type) {
   configs <- list(
     basic = list(
       file = "eht_basic.stan",
-      pars = c("InitialPostprandialkillingEfficacy",
+      pars = c("PostprandialKilling",
                "KillingDuringHostSeeking",
-               "InitialRepellencyRate",
-               "InitialPreprandialkillingEfficacy",
-               "alpha_0", "mu_0", "pB_0"),
+               "HostAvailabilityReduction",
+               "PreprandialKilling",
+               "alpha_0", "mu_0", "pC_0"),
       prepare_data = "prepare_stan_data",
       init_generator = "generate_inits_basic"
     ),
     hierarchical_decay = list(
       file = "hierarchial_time_decay.stan",
-      pars = c("InitialPostprandialkillingEfficacy",
+      pars = c("PostprandialKilling",
                "KillingDuringHostSeeking",
-               "InitialRepellencyRate",
-               "InitialPreprandialkillingEfficacy",
+               "HostAvailabilityReduction",
+               "PreprandialKilling",
                "beta", "kappa", "L",
                "alpha_0", "mu_0"),
       prepare_data = "prepare_stan_data_decay",
@@ -115,7 +115,7 @@ get_model_config <- function(model_type) {
     ),
     semifield = list(
       file = "semifield_repellent.stan",
-      pars = c("InitialRepellencyRate", "KillingDuringHostSeeking",
+      pars = c("HostAvailabilityReduction", "KillingDuringHostSeeking",
                "alpha_H0", "mu0", "alpha_H1", "mu1"),
       prepare_data = "prepare_stan_data_semifield",
       init_generator = "generate_inits_semifield"
@@ -135,7 +135,7 @@ get_model_config <- function(model_type) {
 #'
 #' High-level wrapper function to fit entomological hut trial data using Stan.
 #' Estimates intervention effects on mosquito behavior (Post and Pre-prandial
-#' killing efficacy, repellency, mortality during host seeking).
+#' killing efficacy, reduction in host availability, mortality during host seeking).
 #' Supports predefined models and custom Stan models.
 #'
 #' @param data Data frame. Formatted data with endpoints and treatment column.
@@ -157,6 +157,9 @@ get_model_config <- function(model_type) {
 #' @param pars Character vector. Parameters to save. If NULL, uses model defaults.
 #' @param prior_settings List. Model-specific prior settings (for supported models).
 #' @param output_path Character. Path to save fitted model (.rds).
+#' @param save_y_rep Logical. If TRUE, also save the replicated data
+#'   \code{y_rep} used by \code{\link{posterior_predictive_check}}
+#'   (default: FALSE, as it can make the fit large). Basic model only.
 #' @param seed Integer. Random seed for reproducibility.
 #' @param verbose Logical. Print fitting progress? (default: TRUE)
 #' @param ... Additional arguments passed to \code{rstan::stan}.
@@ -165,11 +168,11 @@ get_model_config <- function(model_type) {
 #'
 #' **Basic model:**
 #' \itemize{
-#'   \item InitialPostprandialkillingEfficacy: Post-feeding killing
-#'   \item InitialPreprandialkillingEfficacy: Pre-feeding killing
-#'   \item InitialRepellencyRate: Repellency/deterrence
+#'   \item PostprandialKilling: Post-feeding killing
+#'   \item PreprandialKilling: Pre-feeding killing
+#'   \item HostAvailabilityReduction: Reduction in host availability
 #'   \item KillingDuringHostSeeking: Mortality during approach
-#'   \item alpha_0, mu_0, pB_0: Baseline parameters (attack rate, mortality, blood-feeding survival)
+#'   \item alpha_0, mu_0, pC_0: Baseline parameters (attack rate, mortality, blood-feeding survival)
 #' }
 #'
 #' **Hierarchical decay model (additional):**
@@ -244,6 +247,7 @@ fit_ento_model <- function(data,
                           pars = NULL,
                           prior_settings = NULL,
                           output_path = NULL,
+                          save_y_rep = FALSE,
                           seed = NULL,
                           verbose = TRUE,
                           ...) {
@@ -305,6 +309,15 @@ fit_ento_model <- function(data,
     } else {
       pars <- get_default_parameters()
     }
+  }
+
+  # Replicated data for posterior predictive checks
+  if (save_y_rep) {
+    if (is.null(custom_model) && model_type != "basic") {
+      stop("save_y_rep is only available for the basic model for now.",
+           call. = FALSE)
+    }
+    pars <- unique(c(pars, "y_rep"))
   }
 
   # Generate initial values
@@ -690,11 +703,11 @@ prepare_stan_data_semifield <- function(data, prior_settings = NULL) {
 #' @return A function that generates a named list of initial values when called.
 #'   The returned function takes no arguments and produces:
 #'   \itemize{
-#'     \item \code{InitialPostprandialkillingEfficacy}: Vector of length nb_treat,
+#'     \item \code{PostprandialKilling}: Vector of length nb_treat,
 #'       initialized to random values in (0.1, 0.9)
 #'     \item \code{KillingDuringHostSeeking}: Vector of length nb_treat,
 #'       initialized to random values in (0.1, 0.9)
-#'     \item \code{InitialRepellencyRate}: Vector of length nb_treat,
+#'     \item \code{HostAvailabilityReduction}: Vector of length nb_treat,
 #'       initialized to random values in (0.1, 0.9)
 #'     \item \code{a}: Scalar, log-scale baseline attack rate, initialized near 0
 #'     \item \code{m}: Scalar, log-scale baseline mortality rate, initialized near 0
@@ -726,9 +739,9 @@ prepare_stan_data_semifield <- function(data, prior_settings = NULL) {
 #' \preformatted{
 #' my_inits <- function() {
 #'   list(
-#'     InitialPostprandialkillingEfficacy = rep(0.5, nb_treat),
+#'     PostprandialKilling = rep(0.5, nb_treat),
 #'     KillingDuringHostSeeking = rep(0.3, nb_treat),
-#'     InitialRepellencyRate = rep(0.4, nb_treat),
+#'     HostAvailabilityReduction = rep(0.4, nb_treat),
 #'     a = 0, m = 0, b = 0
 #'   )
 #' }
@@ -757,13 +770,13 @@ generate_inits_basic <- function(nb_treat) {
   function() {
     list(
       # Treatment-level efficacy parameters (vectors)
-      InitialPostprandialkillingEfficacy = stats::runif(nb_treat, 0.1, 0.9),
+      PostprandialKilling = stats::runif(nb_treat, 0.1, 0.9),
       KillingDuringHostSeeking = stats::runif(nb_treat, 0.1, 0.9),
-      InitialRepellencyRate = stats::runif(nb_treat, 0.1, 0.9),
+      HostAvailabilityReduction = stats::runif(nb_treat, 0.1, 0.9),
       # Scalar baseline parameters (log/logit scale)
       a = stats::rnorm(1, 0, 1),  # log(alpha_0) - baseline attack rate
       m = stats::rnorm(1, 0, 1),  # log(mu_0) - baseline mortality
-      b = stats::rnorm(1, 0, 1)   # logit(pB_0) - baseline blood-feeding survival
+      b = stats::rnorm(1, 0, 1)   # logit(pC_0) - baseline blood-feeding survival
     )
   }
 }
@@ -780,9 +793,9 @@ generate_inits_basic <- function(nb_treat) {
 #'
 #' @return A function that generates a named list of initial values:
 #'   \itemize{
-#'     \item \code{InitialPostprandialkillingEfficacy}: Vector (nb_treat)
+#'     \item \code{PostprandialKilling}: Vector (nb_treat)
 #'     \item \code{KillingDuringHostSeeking}: Vector (nb_treat)
-#'     \item \code{InitialRepellencyRate}: Vector (nb_treat)
+#'     \item \code{HostAvailabilityReduction}: Vector (nb_treat)
 #'     \item \code{beta}: Weibull scale parameter for decay (nb_treat)
 #'     \item \code{kappa}: Weibull shape parameter for decay (nb_treat)
 #'     \item \code{a}, \code{m}: Log-scale baseline rates
@@ -808,9 +821,9 @@ generate_inits_decay <- function(nb_treat, nb_days = NULL) {
   function() {
     list(
       # Treatment-level efficacy parameters
-      InitialPostprandialkillingEfficacy = stats::runif(nb_treat, 0.1, 0.9),
+      PostprandialKilling = stats::runif(nb_treat, 0.1, 0.9),
       KillingDuringHostSeeking = stats::runif(nb_treat, 0.1, 0.9),
-      InitialRepellencyRate = stats::runif(nb_treat, 0.1, 0.9),
+      HostAvailabilityReduction = stats::runif(nb_treat, 0.1, 0.9),
       # Weibull decay parameters
       beta = stats::runif(nb_treat, 0.001, 0.1),
       kappa = stats::runif(nb_treat, 0.5, 2),
@@ -840,7 +853,7 @@ generate_inits_decay <- function(nb_treat, nb_days = NULL) {
 #'
 #' @return A function that generates a named list of initial values:
 #'   \itemize{
-#'     \item \code{InitialRepellencyRate}: Repellency (pi in the article)
+#'     \item \code{HostAvailabilityReduction}: Reduction in host availability (pi in the article)
 #'     \item \code{KillingDuringHostSeeking}: Killing/disarming during host
 #'       seeking (kappa in the article)
 #'     \item \code{a}, \code{m}: Log-scale baseline rates
@@ -854,7 +867,7 @@ generate_inits_decay <- function(nb_treat, nb_days = NULL) {
 #' - `mu`: Mortality rate
 #'
 #' The intervention effects are modeled as
-#' `alpha_H1 = (1 - InitialRepellencyRate) * alpha_H0` and
+#' `alpha_H1 = (1 - HostAvailabilityReduction) * alpha_H0` and
 #' `mu1 = mu0 + KillingDuringHostSeeking * alpha_H0`.
 #'
 #' @seealso \code{\link{generate_inits_basic}}, \code{\link{fit_ento_model}}
@@ -864,7 +877,7 @@ generate_inits_semifield <- function(n) {
   function() {
     list(
       # Effect parameters
-      InitialRepellencyRate = stats::runif(1, 0.1, 0.9),
+      HostAvailabilityReduction = stats::runif(1, 0.1, 0.9),
       KillingDuringHostSeeking = stats::runif(1, 0.1, 0.9),
       # Log-scale baseline rates
       a = stats::rnorm(1, 0, 0.5),
@@ -886,13 +899,13 @@ generate_inits_semifield <- function(n) {
 #' @keywords internal
 get_default_parameters <- function() {
   c(
-    "InitialPostprandialkillingEfficacy",
+    "PostprandialKilling",
     "KillingDuringHostSeeking",
-    "InitialRepellencyRate",
-    "InitialPreprandialkillingEfficacy",
+    "HostAvailabilityReduction",
+    "PreprandialKilling",
     "alpha_0",
     "mu_0",
-    "pB_0"
+    "pC_0"
   )
 }
 
@@ -916,7 +929,11 @@ check_stan_warnings <- function(stan_fit, verbose = TRUE) {
   }
 
   # Check R-hat
-  summary_fit <- rstan::summary(stan_fit)$summary
+  # Saved quantities only; replicated data (y_rep) are not parameters, so
+  # they are left out
+  summary_fit <- rstan::summary(
+    stan_fit, pars = setdiff(stan_fit@sim$pars_oi, "y_rep")
+  )$summary
   max_rhat <- max(summary_fit[, "Rhat"], na.rm = TRUE)
 
   if (max_rhat > 1.1 && verbose) {
@@ -937,7 +954,7 @@ check_stan_warnings <- function(stan_fit, verbose = TRUE) {
 #'   columns for labeling.
 #' @param pars Character vector. Parameters to extract. If NULL, uses the
 #'   intervention parameters and the baseline parameters alpha_0, mu_0 and
-#'   pB_0 (see \code{get_default_parameters()}). Parameters not in the model
+#'   pC_0 (see \code{get_default_parameters()}). Parameters not in the model
 #'   are skipped.
 #' @param probs Numeric vector. Quantiles for credible intervals.
 #'   Default is c(0.025, 0.975) for 95% CI.
@@ -947,7 +964,7 @@ check_stan_warnings <- function(stan_fit, verbose = TRUE) {
 #'   \itemize{
 #'     \item param: Parameter name
 #'     \item treatment: Treatment index (1, 2, ...; NA for scalar parameters
-#'       such as alpha_0, mu_0 and pB_0)
+#'       such as alpha_0, mu_0 and pC_0)
 #'     \item mean: Posterior mean
 #'     \item lower: Lower credible interval bound
 #'     \item upper: Upper credible interval bound
@@ -1051,7 +1068,7 @@ extract_stan_summary <- function(stan_fit,
 #'   columns for labeling.
 #' @param pars Character vector. Parameters to extract. If NULL, uses the
 #'   intervention parameters and the baseline parameters alpha_0, mu_0 and
-#'   pB_0 (see \code{get_default_parameters()}). Parameters not in the model
+#'   pC_0 (see \code{get_default_parameters()}). Parameters not in the model
 #'   are skipped.
 #' @param n_samples Integer. Number of posterior samples to return.
 #'   If NULL, returns all samples.
@@ -1063,7 +1080,7 @@ extract_stan_summary <- function(stan_fit,
 #'     \item sample: Sample index
 #'     \item param: Parameter name
 #'     \item treatment: Treatment index (NA for scalar parameters such as
-#'       alpha_0, mu_0 and pB_0)
+#'       alpha_0, mu_0 and pC_0)
 #'     \item value: Parameter value
 #'     \item vector_control_product: Treatment label (if data provided)
 #'   }

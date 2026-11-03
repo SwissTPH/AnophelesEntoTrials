@@ -17,6 +17,7 @@ fit_ento_model(
   pars = NULL,
   prior_settings = NULL,
   output_path = NULL,
+  save_y_rep = FALSE,
   seed = NULL,
   verbose = TRUE,
   ...
@@ -54,6 +55,10 @@ or list for custom initialization.}
 
 \item{output_path}{Character. Path to save fitted model (.rds).}
 
+\item{save_y_rep}{Logical. If TRUE, also save the replicated data
+\code{y_rep} used by \code{\link{posterior_predictive_check}}
+(default: FALSE, as it can make the fit large). Basic model only.}
+
 \item{seed}{Integer. Random seed for reproducibility.}
 
 \item{verbose}{Logical. Print fitting progress? (default: TRUE)}
@@ -65,11 +70,11 @@ A \code{stanfit} object with MCMC samples. Parameters depend on model:
 
 \strong{Basic model:}
 \itemize{
-\item InitialPostprandialkillingEfficacy: Post-feeding killing
-\item InitialPreprandialkillingEfficacy: Pre-feeding killing
-\item InitialRepellencyRate: Repellency/deterrence
+\item PostprandialKilling: Post-feeding killing
+\item PreprandialKilling: Pre-feeding killing
+\item HostAvailabilityReduction: Reduction in host availability
 \item KillingDuringHostSeeking: Mortality during approach
-\item alpha_0, mu_0, pB_0: Baseline parameters (attack rate, mortality, blood-feeding survival)
+\item alpha_0, mu_0, pC_0: Baseline parameters (attack rate, mortality, blood-feeding survival)
 }
 
 \strong{Hierarchical decay model (additional):}
@@ -81,7 +86,7 @@ A \code{stanfit} object with MCMC samples. Parameters depend on model:
 \description{
 High-level wrapper function to fit entomological hut trial data using Stan.
 Estimates intervention effects on mosquito behavior (Post and Pre-prandial
-killing efficacy, repellency, mortality during host seeking).
+killing efficacy, reduction in host availability, mortality during host seeking).
 Supports predefined models and custom Stan models.
 }
 \details{

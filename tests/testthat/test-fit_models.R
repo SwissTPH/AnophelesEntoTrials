@@ -143,9 +143,9 @@ test_that("generate_inits function returns correct structure", {
   result <- init_fn()
 
   expect_type(result, "list")
-  expect_true("InitialPostprandialkillingEfficacy" %in% names(result))
+  expect_true("PostprandialKilling" %in% names(result))
   expect_true("KillingDuringHostSeeking" %in% names(result))
-  expect_true("InitialRepellencyRate" %in% names(result))
+  expect_true("HostAvailabilityReduction" %in% names(result))
 })
 
 test_that("generate_inits creates correct length vectors", {
@@ -153,9 +153,9 @@ test_that("generate_inits creates correct length vectors", {
   init_fn <- generate_inits_basic(nb_treat)
   result <- init_fn()
 
-  expect_length(result$InitialPostprandialkillingEfficacy, nb_treat)
+  expect_length(result$PostprandialKilling, nb_treat)
   expect_length(result$KillingDuringHostSeeking, nb_treat)
-  expect_length(result$InitialRepellencyRate, nb_treat)
+  expect_length(result$HostAvailabilityReduction, nb_treat)
 })
 
 test_that("generate_inits returns values in valid range", {
@@ -163,12 +163,12 @@ test_that("generate_inits returns values in valid range", {
   result <- init_fn()
 
   # All efficacy/rate parameters should be between 0 and 1
-  expect_true(all(result$InitialPostprandialkillingEfficacy >= 0))
-  expect_true(all(result$InitialPostprandialkillingEfficacy <= 1))
+  expect_true(all(result$PostprandialKilling >= 0))
+  expect_true(all(result$PostprandialKilling <= 1))
   expect_true(all(result$KillingDuringHostSeeking >= 0))
   expect_true(all(result$KillingDuringHostSeeking <= 1))
-  expect_true(all(result$InitialRepellencyRate >= 0))
-  expect_true(all(result$InitialRepellencyRate <= 1))
+  expect_true(all(result$HostAvailabilityReduction >= 0))
+  expect_true(all(result$HostAvailabilityReduction <= 1))
 })
 
 # ============================================================================
@@ -179,13 +179,13 @@ test_that("get_default_parameters returns expected parameters", {
   result <- get_default_parameters()
 
   expect_type(result, "character")
-  expect_true("InitialPostprandialkillingEfficacy" %in% result)
+  expect_true("PostprandialKilling" %in% result)
   expect_true("KillingDuringHostSeeking" %in% result)
-  expect_true("InitialRepellencyRate" %in% result)
-  expect_true("InitialPreprandialkillingEfficacy" %in% result)
+  expect_true("HostAvailabilityReduction" %in% result)
+  expect_true("PreprandialKilling" %in% result)
   expect_true("alpha_0" %in% result)
   expect_true("mu_0" %in% result)
-  expect_true("pB_0" %in% result)
+  expect_true("pC_0" %in% result)
 })
 
 # ============================================================================
@@ -306,7 +306,7 @@ test_that("prepare_stan_data_semifield validates its inputs", {
 test_that("generate_inits_semifield returns the semifield parameters", {
   inits <- generate_inits_semifield(n = 4)()
 
-  expect_named(inits, c("InitialRepellencyRate", "KillingDuringHostSeeking",
+  expect_named(inits, c("HostAvailabilityReduction", "KillingDuringHostSeeking",
                         "a", "m", "sigma_a", "sigma_m", "phi", "psi"))
   expect_length(inits$phi, 4)
   expect_length(inits$psi, 4)
@@ -335,7 +335,7 @@ test_that("full workflow with simulated data works", {
   mu_0 <- 0.14
   alpha_0 <- 0.15
   pc_0 <- 0.92
-  pi <- 0.69     # repellency
+  pi <- 0.69     # reduction in host availability
   kappa <- 3.8   # pre-prandial killing
   xi <- 0.52     # post-prandial killing
 
