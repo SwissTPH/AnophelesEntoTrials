@@ -7,14 +7,23 @@
 prepare_stan_data_semifield(data, prior_settings = NULL)
 }
 \arguments{
-\item{data}{Data frame or list with semifield experiment results.
-Should contain y0 (control) and y1 (intervention) outcome matrices,
-or columns H1, H2, H3, H4, T, L for each arm.}
-
-\item{prior_settings}{List. Optional prior hyperparameters:
+\item{data}{List with the outcome matrices of matched experiments (one row
+per night, same night order in both arms):
 \itemize{
-\item priorsigma_mean_logrates: Prior sigma (default: 2)
-\item priorsigma_pikappa: Prior sigma for effect params (default: 1)
+\item y0: Control arm
+\item y1: Intervention arm
+}
+Columns are H1, H2, H3, H4 (human landing catches in hours 1, 2, 3 and
+4-12), T (trap) and L (lost). Without a trap, the T column can be left
+out (5 columns) and is then set to 0.
+Optionally, beta0 and beta1: trap availability per night in each arm
+(default 0, i.e. no trap, for a spatial repellent only).}
+
+\item{prior_settings}{List. Optional prior hyperparameters (defaults as in
+Denz et al. 2021):
+\itemize{
+\item priorsigma_mean_logrates: Prior sigma for log rates (default: 6)
+\item priorsigma_pikappa: Prior sigma for effect params (default: 5)
 \item hierarchy: Variance for hierarchical effects (default: 1)
 }}
 }
@@ -22,5 +31,7 @@ or columns H1, H2, H3, H4, T, L for each arm.}
 List with elements for semifield Stan model.
 }
 \description{
-Converts semifield experiment data to Stan-compatible list.
+Converts semifield experiment data to Stan-compatible list for the matched
+semifield model for a spatial repellent (Denz et al. 2021,
+\doi{10.1186/s13071-020-04560-x}).
 }

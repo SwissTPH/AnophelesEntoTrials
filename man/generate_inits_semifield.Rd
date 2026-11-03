@@ -13,10 +13,12 @@ random effects.}
 \value{
 A function that generates a named list of initial values:
 \itemize{
-\item \code{rho}: Effect multiplier for intervention (log-normal prior)
-\item \code{a}, \code{b}, \code{m}: Log-scale baseline rates
-\item \code{sigma_a}, \code{sigma_b}, \code{sigma_m}: Hierarchical SDs
-\item \code{phi}, \code{eta}, \code{psi}: Experiment-level random effects (n)
+\item \code{InitialRepellencyRate}: Repellency (pi in the article)
+\item \code{KillingDuringHostSeeking}: Killing/disarming during host
+seeking (kappa in the article)
+\item \code{a}, \code{m}: Log-scale baseline rates
+\item \code{sigma_a}, \code{sigma_m}: Hierarchical SDs
+\item \code{phi}, \code{psi}: Experiment-level random effects (n)
 }
 }
 \description{
@@ -24,14 +26,15 @@ Creates random initial values for MCMC chains for the semifield model.
 The semifield model uses continuous-time Markov chains for time-to-event data.
 }
 \details{
-The semifield model estimates:
+The semifield model estimates, per night:
 \itemize{
 \item \code{alpha_H}: Rate of host-seeking success
-\item \code{alpha_T}: Rate of trap entry
 \item \code{mu}: Mortality rate
 }
 
-The intervention effect is modeled as \code{alpha_T1 = rho * alpha_H0}.
+The intervention effects are modeled as
+\code{alpha_H1 = (1 - InitialRepellencyRate) * alpha_H0} and
+\code{mu1 = mu0 + KillingDuringHostSeeking * alpha_H0}.
 }
 \seealso{
 \code{\link{generate_inits_basic}}, \code{\link{fit_ento_model}}

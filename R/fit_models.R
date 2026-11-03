@@ -51,11 +51,11 @@ list_available_models <- function(details = FALSE) {
     ),
     semifield = list(
       name = "semifield",
-      file = "semifield_time_mcmc.stan",
-      description = "Continuous-time Markov chain model for semifield experiments",
-      required_data = c("y0", "y1", "n", "K"),
-      parameters = c("rho", "alpha_H0", "alpha_T0", "mu0",
-                     "alpha_H1", "alpha_T1", "mu1"),
+      file = "semifield_repellent.stan",
+      description = "Matched semifield model for a spatial repellent (Denz et al. 2021)",
+      required_data = c("y0", "y1"),
+      parameters = c("InitialRepellencyRate", "KillingDuringHostSeeking",
+                     "alpha_H0", "mu0", "alpha_H1", "mu1"),
       use_case = "Semifield experiments with time-to-event outcomes (H1-H4, T, L)"
     )
   )
@@ -114,9 +114,9 @@ get_model_config <- function(model_type) {
       init_generator = "generate_inits_decay"
     ),
     semifield = list(
-      file = "semifield_time_mcmc.stan",
-      pars = c("rho", "alpha_H0", "alpha_T0", "mu0",
-               "alpha_H1", "alpha_T1", "mu1"),
+      file = "semifield_repellent.stan",
+      pars = c("InitialRepellencyRate", "KillingDuringHostSeeking",
+               "alpha_H0", "mu0", "alpha_H1", "mu1"),
       prepare_data = "prepare_stan_data_semifield",
       init_generator = "generate_inits_semifield"
     )
@@ -185,7 +185,8 @@ get_model_config <- function(model_type) {
 #' \itemize{
 #'   \item \code{"basic"}: Standard multinomial model for EHT data
 #'   \item \code{"hierarchical_decay"}: Includes temporal Weibull decay
-#'   \item \code{"semifield"}: For semifield experiments (advanced)
+#'   \item \code{"semifield"}: For matched semifield experiments with a
+#'     spatial repellent (advanced)
 #' }
 #'
 #' ## Custom Stan Models
@@ -588,15 +589,26 @@ prepare_stan_data_decay <- function(data, prior_settings = NULL) {
 
 #' Prepare data for semifield Stan model
 #'
-#' Converts semifield experiment data to Stan-compatible list.
+#' Converts semifield experiment data to Stan-compatible list for the matched
+#' semifield model for a spatial repellent (Denz et al. 2021,
+#' \doi{10.1186/s13071-020-04560-x}).
 #'
-#' @param data Data frame or list with semifield experiment results.
-#'   Should contain y0 (control) and y1 (intervention) outcome matrices,
-#'   or columns H1, H2, H3, H4, T, L for each arm.
-#' @param prior_settings List. Optional prior hyperparameters:
+#' @param data List with the outcome matrices of matched experiments (one row
+#'   per night, same night order in both arms):
 #'   \itemize{
-#'     \item priorsigma_mean_logrates: Prior sigma (default: 2)
-#'     \item priorsigma_pikappa: Prior sigma for effect params (default: 1)
+#'     \item y0: Control arm
+#'     \item y1: Intervention arm
+#'   }
+#'   Columns are H1, H2, H3, H4 (human landing catches in hours 1, 2, 3 and
+#'   4-12), T (trap) and L (lost). Without a trap, the T column can be left
+#'   out (5 columns) and is then set to 0.
+#'   Optionally, beta0 and beta1: trap availability per night in each arm
+#'   (default 0, i.e. no trap, for a spatial repellent only).
+#' @param prior_settings List. Optional prior hyperparameters (defaults as in
+#'   Denz et al. 2021):
+#'   \itemize{
+#'     \item priorsigma_mean_logrates: Prior sigma for log rates (default: 6)
+#'     \item priorsigma_pikappa: Prior sigma for effect params (default: 5)
 #'     \item hierarchy: Variance for hierarchical effects (default: 1)
 #'   }
 #'
@@ -614,13 +626,37 @@ prepare_stan_data_semifield <- function(data, prior_settings = NULL) {
          "See ?prepare_stan_data_semifield for details.", call. = FALSE)
   }
 
+  if (!identical(dim(y0), dim(y1))) {
+    stop("y0 and y1 must have the same dimensions (one row per matched night).",
+         call. = FALSE)
+  }
+  if (!ncol(y0) %in% c(5, 6)) {
+    stop("y0 and y1 must have 6 columns (H1, H2, H3, H4, T, L) ",
+         "or 5 columns without T (H1, H2, H3, H4, L).", call. = FALSE)
+  }
+
+  # Without a trap, add an empty T column before L
+  if (ncol(y0) == 5) {
+    y0 <- cbind(y0[, 1:4, drop = FALSE], 0, y0[, 5, drop = FALSE])
+    y1 <- cbind(y1[, 1:4, drop = FALSE], 0, y1[, 5, drop = FALSE])
+  }
+
   n <- nrow(y0)
   K <- ncol(y0)
 
+  # Trap availability per night (0 = no trap)
+  beta0 <- if (is.null(data$beta0)) rep(0, n) else rep_len(data$beta0, n)
+  beta1 <- if (is.null(data$beta1)) rep(0, n) else rep_len(data$beta1, n)
+
+  if (any(y0[beta0 == 0, 5] > 0) || any(y1[beta1 == 0, 5] > 0)) {
+    stop("Trap catches (T) found on nights without a trap (beta0/beta1 = 0).",
+         call. = FALSE)
+  }
+
   # Default prior settings
   defaults <- list(
-    priorsigma_mean_logrates = 2,
-    priorsigma_pikappa = 1,
+    priorsigma_mean_logrates = 6,
+    priorsigma_pikappa = 5,
     hierarchy = 1
   )
 
@@ -633,6 +669,8 @@ prepare_stan_data_semifield <- function(data, prior_settings = NULL) {
     K = K,
     y0 = y0,
     y1 = y1,
+    beta0 = beta0,
+    beta1 = beta1,
     priorsigma_mean_logrates = defaults$priorsigma_mean_logrates,
     priorsigma_pikappa = defaults$priorsigma_pikappa,
     hierarchy = defaults$hierarchy
@@ -802,19 +840,22 @@ generate_inits_decay <- function(nb_treat, nb_days = NULL) {
 #'
 #' @return A function that generates a named list of initial values:
 #'   \itemize{
-#'     \item \code{rho}: Effect multiplier for intervention (log-normal prior)
-#'     \item \code{a}, \code{b}, \code{m}: Log-scale baseline rates
-#'     \item \code{sigma_a}, \code{sigma_b}, \code{sigma_m}: Hierarchical SDs
-#'     \item \code{phi}, \code{eta}, \code{psi}: Experiment-level random effects (n)
+#'     \item \code{InitialRepellencyRate}: Repellency (pi in the article)
+#'     \item \code{KillingDuringHostSeeking}: Killing/disarming during host
+#'       seeking (kappa in the article)
+#'     \item \code{a}, \code{m}: Log-scale baseline rates
+#'     \item \code{sigma_a}, \code{sigma_m}: Hierarchical SDs
+#'     \item \code{phi}, \code{psi}: Experiment-level random effects (n)
 #'   }
 #'
 #' @details
-#' The semifield model estimates:
+#' The semifield model estimates, per night:
 #' - `alpha_H`: Rate of host-seeking success
-#' - `alpha_T`: Rate of trap entry
 #' - `mu`: Mortality rate
 #'
-#' The intervention effect is modeled as `alpha_T1 = rho * alpha_H0`.
+#' The intervention effects are modeled as
+#' `alpha_H1 = (1 - InitialRepellencyRate) * alpha_H0` and
+#' `mu1 = mu0 + KillingDuringHostSeeking * alpha_H0`.
 #'
 #' @seealso \code{\link{generate_inits_basic}}, \code{\link{fit_ento_model}}
 #'
@@ -822,19 +863,17 @@ generate_inits_decay <- function(nb_treat, nb_days = NULL) {
 generate_inits_semifield <- function(n) {
   function() {
     list(
-      # Effect parameter
-      rho = stats::runif(1, 0.5, 2),
+      # Effect parameters
+      InitialRepellencyRate = stats::runif(1, 0.1, 0.9),
+      KillingDuringHostSeeking = stats::runif(1, 0.1, 0.9),
       # Log-scale baseline rates
       a = stats::rnorm(1, 0, 0.5),
-      b = stats::rnorm(1, 0, 0.5),
       m = stats::rnorm(1, 0, 0.5),
       # Hierarchical standard deviations
       sigma_a = abs(stats::rnorm(1, 0, 0.3)),
-      sigma_b = abs(stats::rnorm(1, 0, 0.3)),
       sigma_m = abs(stats::rnorm(1, 0, 0.3)),
       # Experiment-level random effects
       phi = stats::rnorm(n, 0, 1),
-      eta = stats::rnorm(n, 0, 1),
       psi = stats::rnorm(n, 0, 1)
     )
   }

@@ -259,6 +259,60 @@ test_that("prepare_stan_data_decay maps day to consecutive indices", {
 })
 
 # ============================================================================
+# Tests for the semifield model
+# ============================================================================
+
+test_that("prepare_stan_data_semifield adds an empty T column without a trap", {
+  y0 <- matrix(c(5, 4, 3, 10, 8,
+                 6, 5, 2, 12, 5), nrow = 2, byrow = TRUE)
+  y1 <- matrix(c(2, 2, 1, 6, 19,
+                 3, 1, 1, 5, 20), nrow = 2, byrow = TRUE)
+
+  result <- prepare_stan_data_semifield(list(y0 = y0, y1 = y1))
+
+  expect_equal(result$n, 2)
+  expect_equal(result$K, 6)
+  expect_equal(result$y0[, 5], c(0, 0))
+  expect_equal(result$y0[, 6], c(8, 5))
+  expect_equal(result$beta0, c(0, 0))
+  expect_equal(result$beta1, c(0, 0))
+  expect_equal(result$priorsigma_mean_logrates, 6)
+  expect_equal(result$priorsigma_pikappa, 5)
+  expect_equal(result$hierarchy, 1)
+})
+
+test_that("prepare_stan_data_semifield validates its inputs", {
+  y5 <- matrix(1, nrow = 2, ncol = 5)
+  y6_trap <- cbind(matrix(1, nrow = 2, ncol = 4), 3, 1)
+
+  expect_error(
+    prepare_stan_data_semifield(list(y0 = y5, y1 = y5[1, , drop = FALSE])),
+    "same dimensions"
+  )
+  expect_error(
+    prepare_stan_data_semifield(list(y0 = matrix(1, 2, 4), y1 = matrix(1, 2, 4))),
+    "6 columns"
+  )
+  expect_error(
+    prepare_stan_data_semifield(list(y0 = y6_trap, y1 = y6_trap)),
+    "Trap catches"
+  )
+  expect_no_error(
+    prepare_stan_data_semifield(list(y0 = y6_trap, y1 = y6_trap,
+                                     beta0 = 0.1, beta1 = 0.1))
+  )
+})
+
+test_that("generate_inits_semifield returns the semifield parameters", {
+  inits <- generate_inits_semifield(n = 4)()
+
+  expect_named(inits, c("InitialRepellencyRate", "KillingDuringHostSeeking",
+                        "a", "m", "sigma_a", "sigma_m", "phi", "psi"))
+  expect_length(inits$phi, 4)
+  expect_length(inits$psi, 4)
+})
+
+# ============================================================================
 # Integration tests (skipped if Stan not available)
 # ============================================================================
 

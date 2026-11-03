@@ -91,7 +91,8 @@ Use \code{model_type} to select from predefined models:
 \itemize{
 \item \code{"basic"}: Standard multinomial model for EHT data
 \item \code{"hierarchical_decay"}: Includes temporal Weibull decay
-\item \code{"semifield"}: For semifield experiments (advanced)
+\item \code{"semifield"}: For matched semifield experiments with a
+spatial repellent (advanced)
 }
 }
 

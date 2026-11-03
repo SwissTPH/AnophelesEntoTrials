@@ -24,7 +24,7 @@ The package provides three predefined Stan models for different experimental des
 
 1. **Basic model** (`"basic"`): Standard multinomial model for typical EHT data
 2. **Hierarchical decay model** (`"hierarchical_decay"`): For longitudinal data with temporal decay
-3. **Semifield model** (`"semifield"`): For semifield experiments with time-to-event outcomes
+3. **Semifield model** (`"semifield"`): For matched semifield experiments with a spatial repellent, with time-to-event outcomes
 
 The workflow is first shown with the basic model; the other models are used in the same way (see [Other Predefined Models](#other-predefined-models)).
 
