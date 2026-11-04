@@ -94,6 +94,9 @@ generated quantities {
   vector<lower=0>[tr+1] alpha_i = (1 - HostAvailabilityReduction) * alpha_0;
   vector<lower=0>[tr+1] mu_i    = mu_0 + KillingDuringHostSeeking * alpha_0;
 
+  // absolute pre-prandial killing (additional mortality rate), alpha_0 * kappa
+  vector<lower=0>[tr+1] KillingDuringHostSeekingAbsolute = KillingDuringHostSeeking * alpha_0;
+
   real<lower=0, upper=1> PSc =
     1 - ((1 - exp(-(alpha_0 + mu_0))) * mu_0 / (alpha_0 + mu_0));
 

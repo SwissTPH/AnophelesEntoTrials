@@ -33,6 +33,7 @@ list_available_models <- function(details = FALSE) {
                      "PreprandialKilling",
                      "HostAvailabilityReduction",
                      "KillingDuringHostSeeking",
+                     "KillingDuringHostSeekingAbsolute",
                      "alpha_0", "mu_0", "pC_0"),
       use_case = "Standard experimental hut trial data with 4 outcome categories"
     ),
@@ -83,6 +84,7 @@ get_model_config <- function(model_type) {
       file = "eht_basic.stan",
       pars = c("PostprandialKilling",
                "KillingDuringHostSeeking",
+               "KillingDuringHostSeekingAbsolute",
                "HostAvailabilityReduction",
                "PreprandialKilling",
                "alpha_0", "mu_0", "pC_0"),
@@ -130,7 +132,8 @@ get_model_config <- function(model_type) {
 #' @param init Character, function, or list. Initialization method.
 #'   "auto" generates model-appropriate inits. Can also pass a function
 #'   or list for custom initialization.
-#' @param pars Character vector. Parameters to save. If NULL, uses model defaults.
+#' @param pars Character vector. Parameters to save. If NULL, uses model
+#'   defaults, or saves all quantities for a custom model.
 #' @param prior_settings List. Model-specific prior settings (for supported models).
 #' @param output_path Character. Path to save fitted model (.rds).
 #' @param save_y_rep Logical. If TRUE, also save the replicated data
@@ -147,7 +150,10 @@ get_model_config <- function(model_type) {
 #'   \item PostprandialKilling: Post-feeding killing
 #'   \item PreprandialKilling: Pre-feeding killing
 #'   \item HostAvailabilityReduction: Reduction in host availability
-#'   \item KillingDuringHostSeeking: Mortality during approach
+#'   \item KillingDuringHostSeeking: Mortality during approach, relative to
+#'     the attack rate alpha_0
+#'   \item KillingDuringHostSeekingAbsolute: The same as an absolute
+#'     additional mortality rate (alpha_0 * KillingDuringHostSeeking)
 #'   \item alpha_0, mu_0, pC_0: Baseline parameters (attack rate, mortality, blood-feeding survival)
 #' }
 #'
@@ -269,12 +275,14 @@ fit_ento_model <- function(data,
     if (!is.null(model_config)) {
       pars <- model_config$pars
     } else {
-      pars <- get_default_parameters()
+      # Custom model: its parameter names are not known, so save everything
+      pars <- NA
     }
   }
 
-  # Replicated data for posterior predictive checks
-  if (save_y_rep) {
+  # Replicated data for posterior predictive checks (already saved if
+  # everything is saved)
+  if (save_y_rep && !anyNA(pars)) {
     if (is.null(custom_model) && model_type == "semifield") {
       pars <- unique(c(pars, "y0_rep", "y1_rep"))
     } else {
@@ -699,12 +707,59 @@ get_default_parameters <- function() {
   c(
     "PostprandialKilling",
     "KillingDuringHostSeeking",
+    "KillingDuringHostSeekingAbsolute",
     "HostAvailabilityReduction",
     "PreprandialKilling",
     "alpha_0",
     "mu_0",
     "pC_0"
   )
+}
+
+# Former parameter names (values), by current name (names)
+.FORMER_PARAMETER_NAMES <- c(
+  HostAvailabilityReduction = "InitialRepellencyRate",
+  PostprandialKilling = "InitialPostprandialkillingEfficacy",
+  PreprandialKilling = "InitialPreprandialkillingEfficacy",
+  pC_0 = "pB_0"
+)
+
+#' Use former parameter names for fits made with them
+#'
+#' Replaces requested parameters that are not saved in the fit by their
+#' former name when the fit has it (e.g. custom models written before the
+#' renaming), with a message.
+#'
+#' @param pars Character vector. Requested parameter names.
+#' @param saved Character vector. Quantities saved in the fit.
+#'
+#' @return \code{pars}, with former names where needed.
+#'
+#' @noRd
+use_former_names <- function(pars, saved) {
+  former <- unname(.FORMER_PARAMETER_NAMES[pars])
+  swap <- !is.na(former) & !pars %in% saved & former %in% saved
+  if (any(swap)) {
+    message("Found under their former names: ",
+            paste(former[swap], collapse = ", "),
+            ". Results are reported under the current names (",
+            paste(pars[swap], collapse = ", "), ").")
+    pars[swap] <- former[swap]
+  }
+  pars
+}
+
+#' Report former parameter names under their current names
+#'
+#' @param x Character vector of parameter names.
+#'
+#' @return \code{x}, with former names replaced by current names.
+#'
+#' @noRd
+current_names <- function(x) {
+  idx <- match(x, .FORMER_PARAMETER_NAMES)
+  x[!is.na(idx)] <- names(.FORMER_PARAMETER_NAMES)[idx[!is.na(idx)]]
+  x
 }
 
 #' Check Stan warnings
@@ -790,13 +845,14 @@ extract_stan_summary <- function(stan_fit,
     pars <- get_default_parameters()
   }
 
-  # Check which parameters exist in the model
-  model_pars <- stan_fit@model_pars
-  pars_exist <- pars[pars %in% model_pars]
+  # Check which parameters are saved in the fit (former names accepted)
+  saved_pars <- stan_fit@sim$pars_oi
+  pars <- use_former_names(pars, saved_pars)
+  pars_exist <- pars[pars %in% saved_pars]
 
   if (length(pars_exist) == 0) {
     stop("None of the requested parameters found in model. Available: ",
-         paste(model_pars, collapse = ", "), call. = FALSE)
+         paste(saved_pars, collapse = ", "), call. = FALSE)
   }
 
   # Get summary
@@ -810,7 +866,7 @@ extract_stan_summary <- function(stan_fit,
   # Pattern: paramname[index] or paramname
   summary_df <- summary_df |>
     dplyr::mutate(
-      param = gsub("\\[.*\\]", "", .data$index),
+      param = current_names(gsub("\\[.*\\]", "", .data$index)),
       # Scalar parameters have no index and get NA
       treatment = as.integer(ifelse(
         grepl("\\[", .data$index),
@@ -872,6 +928,7 @@ extract_stan_summary <- function(stan_fit,
 #'   If NULL, returns all samples.
 #' @param posteriorMax_only Logical. If TRUE, returns only the posteriorMax
 #'   estimate (sample with highest log posterior). Default is FALSE.
+#' @param map_only Deprecated, use \code{posteriorMax_only}.
 #'
 #' @return A tibble with columns:
 #'   \itemize{
@@ -900,19 +957,30 @@ extract_stan_posteriors <- function(stan_fit,
                                      data = NULL,
                                      pars = NULL,
                                      n_samples = NULL,
-                                     posteriorMax_only = FALSE) {
+                                     posteriorMax_only = FALSE,
+                                     map_only = NULL) {
+
+  # Deprecated argument name
+  if (!is.null(map_only)) {
+    warning("`map_only` is deprecated, use `posteriorMax_only` instead.",
+            call. = FALSE)
+    posteriorMax_only <- map_only
+  }
 
   # Default parameters (intervention effects and baseline parameters)
   if (is.null(pars)) {
     pars <- get_default_parameters()
   }
 
+  # Former names accepted (e.g. custom models written before the renaming)
+  saved_pars <- stan_fit@sim$pars_oi
+  pars <- use_former_names(pars, saved_pars)
+
   # Always include lp__ for posteriorMax
   pars_with_lp <- unique(c(pars, "lp__"))
 
-  # Check which parameters exist
-  model_pars <- stan_fit@model_pars
-  pars_exist <- pars_with_lp[pars_with_lp %in% c(model_pars, "lp__")]
+  # Check which parameters are saved in the fit
+  pars_exist <- pars_with_lp[pars_with_lp %in% c(saved_pars, "lp__")]
 
   # Extract posterior samples
   fit_extract <- rstan::extract(stan_fit, pars = pars_exist, inc_warmup = FALSE)
@@ -969,6 +1037,7 @@ extract_stan_posteriors <- function(stan_fit,
   }
 
   result <- dplyr::bind_rows(results)
+  result$param <- current_names(result$param)
 
   # Exclude control (treatment = 0), keep scalar parameters (treatment = NA)
   result <- result |>

@@ -49,7 +49,8 @@ data is prepared automatically based on model_type.}
 "auto" generates model-appropriate inits. Can also pass a function
 or list for custom initialization.}
 
-\item{pars}{Character vector. Parameters to save. If NULL, uses model defaults.}
+\item{pars}{Character vector. Parameters to save. If NULL, uses model
+defaults, or saves all quantities for a custom model.}
 
 \item{prior_settings}{List. Model-specific prior settings (for supported models).}
 
@@ -73,7 +74,10 @@ A \code{stanfit} object with MCMC samples. Parameters depend on model:
 \item PostprandialKilling: Post-feeding killing
 \item PreprandialKilling: Pre-feeding killing
 \item HostAvailabilityReduction: Reduction in host availability
-\item KillingDuringHostSeeking: Mortality during approach
+\item KillingDuringHostSeeking: Mortality during approach, relative to
+the attack rate alpha_0
+\item KillingDuringHostSeekingAbsolute: The same as an absolute
+additional mortality rate (alpha_0 * KillingDuringHostSeeking)
 \item alpha_0, mu_0, pC_0: Baseline parameters (attack rate, mortality, blood-feeding survival)
 }
 }

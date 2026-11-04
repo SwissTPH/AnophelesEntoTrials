@@ -186,6 +186,7 @@ test_that("get_default_parameters returns expected parameters", {
   expect_true("alpha_0" %in% result)
   expect_true("mu_0" %in% result)
   expect_true("pC_0" %in% result)
+  expect_true("KillingDuringHostSeekingAbsolute" %in% result)
 })
 
 # ============================================================================
@@ -236,6 +237,36 @@ test_that("prepare_stan_data errors on treatment not coded from 0", {
   data$treatment <- data$treatment + 1
 
   expect_error(prepare_stan_data(data), "coded 0 \\(control\\)")
+})
+
+# ============================================================================
+# Tests for former parameter names
+# ============================================================================
+
+test_that("use_former_names falls back to former names saved in the fit", {
+  saved <- c("InitialRepellencyRate", "KillingDuringHostSeeking", "alpha_0", "lp__")
+
+  expect_message(
+    result <- use_former_names(c("HostAvailabilityReduction", "alpha_0"), saved),
+    "InitialRepellencyRate"
+  )
+  expect_equal(result, c("InitialRepellencyRate", "alpha_0"))
+})
+
+test_that("use_former_names keeps current names when they are saved", {
+  saved <- c("HostAvailabilityReduction", "InitialRepellencyRate")
+
+  expect_no_message(
+    result <- use_former_names("HostAvailabilityReduction", saved)
+  )
+  expect_equal(result, "HostAvailabilityReduction")
+})
+
+test_that("current_names reports former names under current names", {
+  expect_equal(
+    current_names(c("InitialRepellencyRate", "pB_0", "alpha_0")),
+    c("HostAvailabilityReduction", "pC_0", "alpha_0")
+  )
 })
 
 # ============================================================================

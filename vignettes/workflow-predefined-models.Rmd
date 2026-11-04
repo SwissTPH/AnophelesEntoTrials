@@ -53,6 +53,7 @@ The counts $(UA, UD, FA, FD)$ of each observation (hut-night) follow a multinomi
 |-----------|--------|----------------|-------|
 | HostAvailabilityReduction | π | Reduction in host availability | 0-1 |
 | KillingDuringHostSeeking | κ | Pre-prandial killing, relative to the attack rate $\alpha_0$ | ≥0 |
+| KillingDuringHostSeekingAbsolute | $\alpha_0 \kappa$ | Derived: pre-prandial killing as an absolute additional mortality rate | ≥0 |
 | PostprandialKilling | ξ | Post-prandial killing | 0-1 |
 | PreprandialKilling | - | Derived: pre-prandial killing efficacy as defined in Champagne et al. (2025) | 0-1 |
 
@@ -224,8 +225,10 @@ Since the data were simulated, we can compare the estimates with the true values
 
 ```{r compare-true-values, eval = TRUE}
 true_values <- data.frame(
-  param = c(names(true_effects)[-1], names(true_baseline)),
-  true = unname(c(unlist(true_effects[1, -1]), true_baseline))
+  param = c(names(true_effects)[-1], names(true_baseline),
+            "KillingDuringHostSeekingAbsolute"),
+  true = unname(c(unlist(true_effects[1, -1]), true_baseline,
+                  true_effects$KillingDuringHostSeeking[1] * true_baseline[["alpha_0"]]))
 )
 
 merge(summary_results[, c("param", "mean", "lower", "upper")], true_values)
@@ -407,7 +410,7 @@ When providing custom inits, specify values on the **transformed scale** (a, m, 
 ## Assumptions and Limitations
 
 - Huts and hut entry are not modelled: $\pi$ is a reduction in host availability, not a reduction in hut entry.
-- Pre-prandial killing uses the scaled definition $\mu_i = \mu_0 + \alpha_0 \kappa_i$; the absolute additional mortality is $\alpha_0 \kappa_i$. There is currently no evidence base to choose between the two definitions, and the choice affects predictions.
+- Pre-prandial killing uses the scaled definition $\mu_i = \mu_0 + \alpha_0 \kappa_i$; the absolute additional mortality is $\alpha_0 \kappa_i$ (output `KillingDuringHostSeekingAbsolute` of the basic model). There is currently no evidence base to choose between the two definitions, and the choice affects predictions.
 - The baseline rates ($\alpha_0$, $\mu_0$) are estimated under experimental conditions and need not reflect field conditions.
 - The basic model does not include disarming (mosquitoes prevented from feeding without being killed).
 - In the semifield model, $\kappa$ combines killing and disarming, which can only be separated with additional experiments. Post-prandial killing is not estimated: it requires a separate experiment on the mortality of mosquitoes caught by HLC.

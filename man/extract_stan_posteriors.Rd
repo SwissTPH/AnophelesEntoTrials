@@ -9,7 +9,8 @@ extract_stan_posteriors(
   data = NULL,
   pars = NULL,
   n_samples = NULL,
-  posteriorMax_only = FALSE
+  posteriorMax_only = FALSE,
+  map_only = NULL
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ If NULL, returns all samples.}
 
 \item{posteriorMax_only}{Logical. If TRUE, returns only the posteriorMax
 estimate (sample with highest log posterior). Default is FALSE.}
+
+\item{map_only}{Deprecated, use \code{posteriorMax_only}.}
 }
 \value{
 A tibble with columns:
