@@ -5,7 +5,6 @@
 
 # RStudio files
 .Rproj.user/
-*.Rproj
 
 # Session Data files
 .RData
@@ -52,3 +51,4 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+.Rproj.user
