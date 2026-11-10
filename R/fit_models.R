@@ -317,6 +317,11 @@ fit_ento_model <- function(data,
     cli::cli_alert_info("Iterations: {iter} | Warmup: {warmup} | Chains: {chains}")
   }
 
+  # rstan needs a single number: without a seed, draw one (rstan's default)
+  if (is.null(seed)) {
+    seed <- sample.int(.Machine$integer.max, 1)
+  }
+
   stan_fit <- tryCatch(
     {
       rstan::stan(
@@ -643,10 +648,11 @@ prepare_stan_data_semifield <- function(data, prior_settings = NULL) {
 generate_inits_basic <- function(nb_treat) {
   function() {
     list(
-      # Treatment-level efficacy parameters (vectors)
-      PostprandialKilling = stats::runif(nb_treat, 0.1, 0.9),
-      KillingDuringHostSeeking = stats::runif(nb_treat, 0.1, 0.9),
-      HostAvailabilityReduction = stats::runif(nb_treat, 0.1, 0.9),
+      # Treatment-level efficacy parameters (vectors; array() keeps a vector
+      # of length 1 a vector for Stan)
+      PostprandialKilling = array(stats::runif(nb_treat, 0.1, 0.9)),
+      KillingDuringHostSeeking = array(stats::runif(nb_treat, 0.1, 0.9)),
+      HostAvailabilityReduction = array(stats::runif(nb_treat, 0.1, 0.9)),
       # Scalar baseline parameters (log/logit scale)
       a = stats::rnorm(1, 0, 1),  # log(alpha_0) - baseline attack rate
       m = stats::rnorm(1, 0, 1),  # log(mu_0) - baseline mortality
@@ -697,9 +703,9 @@ generate_inits_semifield <- function(n) {
       # Hierarchical standard deviations
       sigma_a = abs(stats::rnorm(1, 0, 0.3)),
       sigma_m = abs(stats::rnorm(1, 0, 0.3)),
-      # Experiment-level random effects
-      phi = stats::rnorm(n, 0, 1),
-      psi = stats::rnorm(n, 0, 1)
+      # Experiment-level random effects (array() keeps n = 1 a vector)
+      phi = array(stats::rnorm(n, 0, 1)),
+      psi = array(stats::rnorm(n, 0, 1))
     )
   }
 }
