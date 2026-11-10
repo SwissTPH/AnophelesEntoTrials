@@ -1,4 +1,3 @@
-
 ---
 title: "Workflow: Using Custom Stan Models"
 output: rmarkdown::html_vignette
@@ -24,7 +23,7 @@ This vignette demonstrates how to use custom Stan models with the `AnophelesEnto
 
 ## Overview
 
-The package supports custom models through three mechanisms:
+The package supports custom models through four mechanisms:
 
 1. **Custom Stan file**: Provide path to your own `.stan` file
 2. **Custom Stan data**: Provide your own data list matching your model's requirements
@@ -62,8 +61,8 @@ functions {
 data {
   int<lower=0> N;                // number of observations
   int<lower=0> tr;               // number of treatments
-  int treat[N];                  // treatment index
-  int<lower=0> y[N, 4];          // outcomes (UA, UD, FA, FD)
+  array[N] int treat;            // treatment index
+  array[N, 4] int<lower=0> y;    // outcomes (UA, UD, FA, FD)
   vector[N] net_age;             // net age in months (NEW!)
   int<lower=0, upper=1> use_likelihood;
 }
@@ -188,6 +187,7 @@ custom_init <- function() {
 
 ```{r fit-custom-model}
 # Fit with custom model
+# (pars is optional: by default, all quantities of a custom model are saved)
 fit_custom <- fit_ento_model(
   data = custom_data,
   custom_model = "path/to/custom_model_net_age.stan",
@@ -238,9 +238,9 @@ Here's how to create a model with a different outcome structure (e.g., binary ou
 // Binary outcome model: alive vs dead
 data {
   int<lower=0> N;
-  int<lower=0> n_alive[N];    // Number alive
-  int<lower=0> n_total[N];    // Total mosquitoes
-  int treat[N];
+  array[N] int<lower=0> n_alive;    // Number alive
+  array[N] int<lower=0> n_total;    // Total mosquitoes
+  array[N] int treat;
   int<lower=0> tr;
 }
 
@@ -294,11 +294,14 @@ fit_binary <- fit_ento_model(
   init = function() {
     list(
       baseline_survival = runif(1, 0.7, 0.9),
-      mortality_effect = runif(1, 0.1, 0.5)
+      # vector of length tr = 1: array() keeps it a vector for Stan
+      mortality_effect = array(runif(1, 0.1, 0.5))
     )
   }
 )
 ```
+
+The extract functions (`extract_stan_summary()`, `extract_stan_posteriors()`) assume treatment vectors of length `tr + 1` with the control first, as in Example 1, and drop the first entry. For a model like this one, with one entry per treatment, use rstan directly, e.g. `print(fit_binary)`.
 
 ## Example 3: Extending Predefined Models
 
@@ -362,40 +365,16 @@ prior_pred_data$use_likelihood <- 0
 
 fit_prior <- fit_ento_model(
   data = custom_data,
-  custom_model = "path/to/custom_model.stan",
+  custom_model = "path/to/custom_model_net_age.stan",
   stan_data = prior_pred_data,
   iter = 2000,
   chains = 2
 )
 ```
 
-### 3. Model Comparison
+### 3. Posterior Predictive Checks
 
-Compare custom models with predefined ones:
-
-```{r model-comparison}
-# Fit basic model
-fit_basic <- fit_ento_model(
-  data = custom_data[, c("UA", "UD", "FA", "FD", "treatment")],
-  model_type = "basic"
-)
-
-# Fit custom model
-fit_custom <- fit_ento_model(
-  data = custom_data,
-  custom_model = "path/to/custom_model.stan",
-  stan_data = custom_stan_data,
-  pars = c("PostprandialKilling",
-           "KillingDuringHostSeeking",
-           "HostAvailabilityReduction")
-)
-
-# Compare using LOO-CV (requires loo package)
-library(loo)
-loo_basic <- loo(fit_basic)
-loo_custom <- loo(fit_custom)
-loo_compare(loo_basic, loo_custom)
-```
+To use `posterior_predictive_check()` with a custom model, add replicated data `y_rep` to its generated quantities, as in the basic model (`system.file("stan", "eht_basic.stan", package = "AnophelesEntoTrials")`), and fit with `save_y_rep = TRUE`.
 
 ## Troubleshooting Custom Models
 
@@ -425,7 +404,7 @@ stan_data$y <- matrix(as.integer(stan_data$y), ncol = 4)
 stan_data$treat <- as.integer(stan_data$treat)
 ```
 
-3. **Missing generated quantities**: Add them to pars
+3. **Missing generated quantities**: If you specify `pars`, include them
 
 ```{r include-generated}
 fit <- fit_ento_model(
