@@ -130,6 +130,11 @@ generated quantities {
                    P_FA(alpha_i[treat[i]+1], mu_i[treat[i]+1], pCi),
                    P_FD(alpha_i[treat[i]+1], mu_i[treat[i]+1], pCi)]';
     }
-    y_rep[i] = multinomial_rng(theta_rep, sum(y[i]));
+    // multinomial_rng needs at least one mosquito: empty observations stay empty
+    if (sum(y[i]) > 0) {
+      y_rep[i] = multinomial_rng(theta_rep, sum(y[i]));
+    } else {
+      y_rep[i] = rep_array(0, 4);
+    }
   }
 }

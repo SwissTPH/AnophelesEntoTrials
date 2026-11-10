@@ -132,8 +132,11 @@ generated quantities {
   alpha_H1 = (1 -HostAvailabilityReduction) *alpha_H0;
   mu1 = mu0 + KillingDuringHostSeeking * alpha_H0;
   // same probabilities as in the model block, same number of mosquitoes per night
+  // multinomial_rng needs at least one mosquito: empty nights stay empty
   for (i in 1:n){
-    y0_rep[i] = multinomial_rng(theta0[,i], sum(y0[i]));
-    y1_rep[i] = multinomial_rng(theta1[,i], sum(y1[i]));
+    y0_rep[i] = rep_array(0, K);
+    y1_rep[i] = rep_array(0, K);
+    if (sum(y0[i]) > 0) y0_rep[i] = multinomial_rng(theta0[,i], sum(y0[i]));
+    if (sum(y1[i]) > 0) y1_rep[i] = multinomial_rng(theta1[,i], sum(y1[i]));
   }
 }

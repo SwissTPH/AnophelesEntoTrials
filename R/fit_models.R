@@ -339,6 +339,12 @@ fit_ento_model <- function(data,
     }
   )
 
+  # rstan returns a fit without samples (mode 2) when sampling fails
+  if (stan_fit@mode != 0L) {
+    stop("Stan sampling failed and returned no samples; ",
+         "see the Stan messages above.", call. = FALSE)
+  }
+
   # Check for warnings
   check_stan_warnings(stan_fit, verbose = verbose)
 
