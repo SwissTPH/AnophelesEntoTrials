@@ -281,26 +281,54 @@ plot_posterior_predictive(ppc)
 
 ## Fitting the Semifield Model
 
-The semifield model follows the same workflow, with `model_type = "semifield"` and the data listed in Step 1.
+The semifield model follows the same workflow, with `model_type = "semifield"` and the data listed in Step 1. As for the basic model, we simulate a dataset similar to the repellent experiment of Denz et al. (2021), with the effects estimated in that article, and refit the model.
 
-```{r fit-semifield-model}
-# Outcome matrices of matched nights (one row per night, same order in both arms):
-# H1, H2, H3, H4 (landings in hours 1, 2, 3 and 4-12) and L (lost);
+```{r simulate-semifield, eval = TRUE}
+set.seed(1)
+n_nights <- 20     # matched nights
+released <- 100    # mosquitoes released per arm and night
+true_semifield <- c(HostAvailabilityReduction = 0.416, KillingDuringHostSeeking = 0.911)
+
+# Night-specific control rates (per hour), with night-to-night variation
+alpha <- exp(log(0.3) + rnorm(n_nights, 0, 0.3))
+mu    <- exp(log(0.05) + rnorm(n_nights, 0, 0.3))
+
+# Outcome probabilities H1, H2, H3, H4, L (no trap)
+semifield_probs <- function(alpha, mu) {
+  PA <- function(t) exp(-(alpha + mu) * t)
+  PH <- function(t) (1 - PA(t)) * alpha / (alpha + mu)
+  p <- c(PH(1), PA(1) * PH(1), PA(1)^2 * PH(1), PA(1)^3 * PH(9))
+  c(p, 1 - sum(p))
+}
+
+# Outcome matrices of matched nights (one row per night, same order in both arms);
 # without a trap, the T column can be left out
 semifield_data <- list(
-  y0 = control_counts,    # control arm
-  y1 = repellent_counts   # repellent arm
+  y0 = t(sapply(1:n_nights, function(k)
+    rmultinom(1, released, semifield_probs(alpha[k], mu[k])))),
+  y1 = t(sapply(1:n_nights, function(k)
+    rmultinom(1, released, semifield_probs((1 - true_semifield[[1]]) * alpha[k],
+                                           mu[k] + true_semifield[[2]] * alpha[k]))))
   # if the compartments contained a trap, add its availability per night:
   # beta0 = ..., beta1 = ...
 )
+```
 
+```{r fit-semifield-model, eval = TRUE, fig.width = 7, fig.height = 4}
 fit_semifield <- fit_ento_model(
   data = semifield_data,
   model_type = "semifield",
-  save_y_rep = TRUE
+  iter = 2000,
+  warmup = 1000,
+  chains = 2,
+  seed = 123,
+  save_y_rep = TRUE,
+  refresh = 0
 )
 
+# Estimates and true values
 extract_stan_summary(fit_semifield)
+true_semifield
 
 # Posterior predictive check
 ppc_semifield <- posterior_predictive_check(fit_semifield, data = semifield_data)
