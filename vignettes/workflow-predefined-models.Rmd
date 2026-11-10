@@ -290,6 +290,8 @@ The semifield model follows the same workflow, with `model_type = "semifield"` a
 semifield_data <- list(
   y0 = control_counts,    # control arm
   y1 = repellent_counts   # repellent arm
+  # if the compartments contained a trap, add its availability per night:
+  # beta0 = ..., beta1 = ...
 )
 
 fit_semifield <- fit_ento_model(

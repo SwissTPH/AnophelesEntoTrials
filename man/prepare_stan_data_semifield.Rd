@@ -17,7 +17,9 @@ Columns are H1, H2, H3, H4 (human landing catches in hours 1, 2, 3 and
 4-12), T (trap) and L (lost). Without a trap, the T column can be left
 out (5 columns) and is then set to 0.
 Optionally, beta0 and beta1: trap availability per night in each arm
-(default 0, i.e. no trap, for a spatial repellent only).}
+(default 0, i.e. no trap, for a spatial repellent only). If the
+compartments contained a trap (e.g. unbaited), pass its availability,
+as in Denz et al. (2021), rather than leaving it at 0.}
 
 \item{prior_settings}{List. Optional prior hyperparameters (defaults as in
 Denz et al. 2021):

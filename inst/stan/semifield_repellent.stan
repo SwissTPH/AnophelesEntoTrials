@@ -113,8 +113,18 @@ model{
   for (i in 1:n){
     theta0_i = theta0[,i];
     theta1_i = theta1[,i];
-    target += multinomial_lpmf( y0[i,] | theta0_i);
-    target += multinomial_lpmf( y1[i,] | theta1_i);
+    // without a trap (beta = 0), T has probability 0: it is left out of the
+    // likelihood, as its gradient would not be finite (0/0)
+    if (beta0[i] > 0) {
+      target += multinomial_lpmf( y0[i,] | theta0_i);
+    } else {
+      target += multinomial_lpmf( y0[i, {1, 2, 3, 4, 6}] | theta0_i[{1, 2, 3, 4, 6}]);
+    }
+    if (beta1[i] > 0) {
+      target += multinomial_lpmf( y1[i,] | theta1_i);
+    } else {
+      target += multinomial_lpmf( y1[i, {1, 2, 3, 4, 6}] | theta1_i[{1, 2, 3, 4, 6}]);
+    }
   }
 }
 generated quantities {
