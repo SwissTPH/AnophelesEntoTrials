@@ -7,23 +7,29 @@ Description: The AnophelesEntoTrials R package provides a platform to estimate
     the impact of malaria vector control interventions based on entomological
     data using MCMC models. It supports fitting Bayesian models to
     Entomological Hut Trial (EHT) data to estimate intervention efficacy
-    parameters including repellency, pre-prandial killing, and post-prandial
+    parameters including reduction in host availability, pre-prandial killing, and post-prandial
     killing.
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.1.0)
 Imports:
     cli,
     dplyr,
     readr,
     readxl,
-    rstan,
+    rlang,
+    rstan (>= 2.26),
+    stats,
     tibble,
     tools
 Suggests:
+    ggplot2,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0
+URL: https://swisstph.github.io/AnophelesEntoTrials/

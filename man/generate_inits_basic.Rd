@@ -14,11 +14,11 @@ estimates treatment-level parameters as vectors of length \code{nb_treat}.}
 A function that generates a named list of initial values when called.
 The returned function takes no arguments and produces:
 \itemize{
-\item \code{InitialPostprandialkillingEfficacy}: Vector of length nb_treat,
+\item \code{PostprandialKilling}: Vector of length nb_treat,
 initialized to random values in (0.1, 0.9)
 \item \code{KillingDuringHostSeeking}: Vector of length nb_treat,
 initialized to random values in (0.1, 0.9)
-\item \code{InitialRepellencyRate}: Vector of length nb_treat,
+\item \code{HostAvailabilityReduction}: Vector of length nb_treat,
 initialized to random values in (0.1, 0.9)
 \item \code{a}: Scalar, log-scale baseline attack rate, initialized near 0
 \item \code{m}: Scalar, log-scale baseline mortality rate, initialized near 0
@@ -58,9 +58,9 @@ You can provide your own init function to \code{fit_ento_model()}:
 \preformatted{
 my_inits <- function() {
   list(
-    InitialPostprandialkillingEfficacy = rep(0.5, nb_treat),
+    PostprandialKilling = rep(0.5, nb_treat),
     KillingDuringHostSeeking = rep(0.3, nb_treat),
-    InitialRepellencyRate = rep(0.4, nb_treat),
+    HostAvailabilityReduction = rep(0.4, nb_treat),
     a = 0, m = 0, b = 0
   )
 }
@@ -82,7 +82,6 @@ fit <- fit_ento_model(data, init = init_fn)
 
 }
 \seealso{
-\code{\link{generate_inits_decay}} for hierarchical decay model,
 \code{\link{generate_inits_semifield}} for semifield model,
 \code{\link{fit_ento_model}} for the main fitting function
 }

@@ -1,2 +1,8 @@
-^AnophelesInterventions\.Rproj$
+^.*\.Rproj$
+^LICENSE$
 ^\.Rproj\.user$
+^AnophelesEntoTrials\.Rproj$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^\.github$
