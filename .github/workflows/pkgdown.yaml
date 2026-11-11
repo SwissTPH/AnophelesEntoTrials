@@ -31,7 +31,9 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::pkgdown, local::.
+          # BH, RcppEigen, StanHeaders, RcppParallel: C++ headers needed to
+          # compile the Stan models when the vignettes are built
+          extra-packages: any::pkgdown, local::., any::BH, any::RcppEigen, any::StanHeaders, any::RcppParallel
           needs: website
 
       - name: Build site
