@@ -1,11 +1,7 @@
-#' Entomological Trials Model Fitting Module
-#'
-#' Functions for Bayesian fitting of entomological trials(Ento-Trials) data using Stan.
-#' Supports custom and pre-loaded Stan models and custom parameter specification
-#'
-#' @name fit_ento_model
-#' @docType _PACKAGE
-NULL
+# Entomological Trials Model Fitting Module
+#
+# Functions for Bayesian fitting of entomological trials(Ento-Trials) data using Stan.
+# Supports custom and pre-loaded Stan models and custom parameter specification
 
 #' List available predefined Stan models
 #'
@@ -30,36 +26,24 @@ list_available_models <- function(details = FALSE) {
   models <- list(
     basic = list(
       name = "basic",
-      file = "mosq_foraging_mcmc_full_fit_priorpred.stan",
+      file = "eht_basic.stan",
       description = "Standard multinomial EHT model",
       required_data = c("UA", "UD", "FA", "FD", "treatment"),
-      parameters = c("InitialPostprandialkillingEfficacy",
-                     "InitialPreprandialkillingEfficacy",
-                     "InitialRepellencyRate",
+      parameters = c("PostprandialKilling",
+                     "PreprandialKilling",
+                     "HostAvailabilityReduction",
                      "KillingDuringHostSeeking",
-                     "alpha_0", "mu_0", "pB_0"),
+                     "KillingDuringHostSeekingAbsolute",
+                     "alpha_0", "mu_0", "pC_0"),
       use_case = "Standard experimental hut trial data with 4 outcome categories"
-    ),
-    hierarchical_decay = list(
-      name = "hierarchical_decay",
-      file = "hierarchial_time_decay.stan",
-      description = "Hierarchical model with Weibull time decay",
-      required_data = c("UA", "UD", "FA", "FD", "treatment", "day", "datej", "fed", "total"),
-      parameters = c("InitialPostprandialkillingEfficacy",
-                     "InitialPreprandialkillingEfficacy",
-                     "InitialRepellencyRate",
-                     "KillingDuringHostSeeking",
-                     "beta", "kappa", "L",
-                     "alpha_0", "mu_0"),
-      use_case = "Longitudinal EHT data with temporal decay of intervention effects"
     ),
     semifield = list(
       name = "semifield",
-      file = "13071_2020_4560_MOESM4_ESM.stan",
-      description = "Continuous-time Markov chain model for semifield experiments",
-      required_data = c("y0", "y1", "n", "K"),
-      parameters = c("rho", "alpha_H0", "alpha_T0", "mu0",
-                     "alpha_H1", "alpha_T1", "mu1"),
+      file = "semifield_repellent.stan",
+      description = "Matched semifield model for a spatial repellent (Denz et al. 2021)",
+      required_data = c("y0", "y1"),
+      parameters = c("HostAvailabilityReduction", "KillingDuringHostSeeking",
+                     "alpha_H0", "mu0", "alpha_H1", "mu1"),
       use_case = "Semifield experiments with time-to-event outcomes (H1-H4, T, L)"
     )
   )
@@ -88,7 +72,7 @@ list_available_models <- function(details = FALSE) {
 #'
 #' Returns configuration for a predefined model type.
 #'
-#' @param model_type Character. One of "basic", "hierarchical_decay", "semifield".
+#' @param model_type Character. One of "basic", "semifield".
 #'
 #' @return List with model file path, default parameters, and data preparation function.
 #'
@@ -97,30 +81,20 @@ get_model_config <- function(model_type) {
 
   configs <- list(
     basic = list(
-      file = "mosq_foraging_mcmc_full_fit_priorpred.stan",
-      pars = c("InitialPostprandialkillingEfficacy",
+      file = "eht_basic.stan",
+      pars = c("PostprandialKilling",
                "KillingDuringHostSeeking",
-               "InitialRepellencyRate",
-               "InitialPreprandialkillingEfficacy",
-               "alpha_0", "mu_0", "pB_0"),
+               "KillingDuringHostSeekingAbsolute",
+               "HostAvailabilityReduction",
+               "PreprandialKilling",
+               "alpha_0", "mu_0", "pC_0"),
       prepare_data = "prepare_stan_data",
       init_generator = "generate_inits_basic"
     ),
-    hierarchical_decay = list(
-      file = "hierarchial_time_decay.stan",
-      pars = c("InitialPostprandialkillingEfficacy",
-               "KillingDuringHostSeeking",
-               "InitialRepellencyRate",
-               "InitialPreprandialkillingEfficacy",
-               "beta", "kappa", "L",
-               "alpha_0", "mu_0"),
-      prepare_data = "prepare_stan_data_decay",
-      init_generator = "generate_inits_decay"
-    ),
     semifield = list(
-      file = "13071_2020_4560_MOESM4_ESM.stan",
-      pars = c("rho", "alpha_H0", "alpha_T0", "mu0",
-               "alpha_H1", "alpha_T1", "mu1"),
+      file = "semifield_repellent.stan",
+      pars = c("HostAvailabilityReduction", "KillingDuringHostSeeking",
+               "alpha_H0", "mu0", "alpha_H1", "mu1"),
       prepare_data = "prepare_stan_data_semifield",
       init_generator = "generate_inits_semifield"
     )
@@ -139,13 +113,13 @@ get_model_config <- function(model_type) {
 #'
 #' High-level wrapper function to fit entomological hut trial data using Stan.
 #' Estimates intervention effects on mosquito behavior (Post and Pre-prandial
-#' killing efficacy, repellency, mortality during host seeking).
+#' killing efficacy, reduction in host availability, mortality during host seeking).
 #' Supports predefined models and custom Stan models.
 #'
 #' @param data Data frame. Formatted data with endpoints and treatment column.
 #'   Required columns depend on model_type (see \code{\link{list_available_models}}).
-#' @param model_type Character. Predefined model type: "basic" (default),
-#'   "hierarchical_decay", or "semifield". Use \code{list_available_models()}
+#' @param model_type Character. Predefined model type: "basic" (default)
+#'   or "semifield". Use \code{list_available_models()}
 #'   to see available options. Ignored if custom_model is provided.
 #' @param custom_model Character or NULL. Path to custom Stan model file.
 #'   If provided, overrides model_type.
@@ -158,9 +132,13 @@ get_model_config <- function(model_type) {
 #' @param init Character, function, or list. Initialization method.
 #'   "auto" generates model-appropriate inits. Can also pass a function
 #'   or list for custom initialization.
-#' @param pars Character vector. Parameters to save. If NULL, uses model defaults.
+#' @param pars Character vector. Parameters to save. If NULL, uses model
+#'   defaults, or saves all quantities for a custom model.
 #' @param prior_settings List. Model-specific prior settings (for supported models).
 #' @param output_path Character. Path to save fitted model (.rds).
+#' @param save_y_rep Logical. If TRUE, also save the replicated data
+#'   \code{y_rep} used by \code{\link{posterior_predictive_check}}
+#'   (default: FALSE, as it can make the fit large).
 #' @param seed Integer. Random seed for reproducibility.
 #' @param verbose Logical. Print fitting progress? (default: TRUE)
 #' @param ... Additional arguments passed to \code{rstan::stan}.
@@ -169,17 +147,14 @@ get_model_config <- function(model_type) {
 #'
 #' **Basic model:**
 #' \itemize{
-#'   \item InitialPostprandialkillingEfficacy: Post-feeding killing
-#'   \item InitialPreprandialkillingEfficacy: Pre-feeding killing
-#'   \item InitialRepellencyRate: Repellency/deterrence
-#'   \item KillingDuringHostSeeking: Mortality during approach
-#'   \item alpha_0, mu_0, pB_0: Baseline parameters (attack rate, mortality, blood-feeding survival)
-#' }
-#'
-#' **Hierarchical decay model (additional):**
-#' \itemize{
-#'   \item beta, kappa: Weibull decay parameters
-#'   \item L: Half-life of intervention effect
+#'   \item PostprandialKilling: Post-feeding killing
+#'   \item PreprandialKilling: Pre-feeding killing
+#'   \item HostAvailabilityReduction: Reduction in host availability
+#'   \item KillingDuringHostSeeking: Mortality during approach, relative to
+#'     the attack rate alpha_0
+#'   \item KillingDuringHostSeekingAbsolute: The same as an absolute
+#'     additional mortality rate (alpha_0 * KillingDuringHostSeeking)
+#'   \item alpha_0, mu_0, pC_0: Baseline parameters (attack rate, mortality, blood-feeding survival)
 #' }
 #'
 #' @details
@@ -188,8 +163,8 @@ get_model_config <- function(model_type) {
 #' Use \code{model_type} to select from predefined models:
 #' \itemize{
 #'   \item \code{"basic"}: Standard multinomial model for EHT data
-#'   \item \code{"hierarchical_decay"}: Includes temporal Weibull decay
-#'   \item \code{"semifield"}: For semifield experiments (advanced)
+#'   \item \code{"semifield"}: For matched semifield experiments with a
+#'     spatial repellent (advanced)
 #' }
 #'
 #' ## Custom Stan Models
@@ -207,12 +182,6 @@ get_model_config <- function(model_type) {
 #' \dontrun{
 #' # Basic usage with default model
 #' fit <- fit_ento_model(data = my_data)
-#'
-#' # Use hierarchical decay model for longitudinal data
-#' fit_decay <- fit_ento_model(
-#'   data = longitudinal_data,
-#'   model_type = "hierarchical_decay"
-#' )
 #'
 #' # With custom Stan model and custom parameters
 #' fit_custom <- fit_ento_model(
@@ -247,6 +216,7 @@ fit_ento_model <- function(data,
                           pars = NULL,
                           prior_settings = NULL,
                           output_path = NULL,
+                          save_y_rep = FALSE,
                           seed = NULL,
                           verbose = TRUE,
                           ...) {
@@ -285,7 +255,6 @@ fit_ento_model <- function(data,
       # Use model-specific data preparation
       stan_data <- switch(model_type,
         "basic" = prepare_stan_data(data),
-        "hierarchical_decay" = prepare_stan_data_decay(data, prior_settings),
         "semifield" = prepare_stan_data_semifield(data, prior_settings),
         prepare_stan_data(data)  # fallback
       )
@@ -293,10 +262,10 @@ fit_ento_model <- function(data,
       # Custom model without stan_data - try basic preparation
       stan_data <- prepare_stan_data(data)
       if (verbose) {
-        cli::cli_alert_warning(
-          "Using basic data preparation for custom model. ",
+        cli::cli_alert_warning(paste(
+          "Using basic data preparation for custom model.",
           "Consider providing stan_data directly."
-        )
+        ))
       }
     }
   }
@@ -306,7 +275,18 @@ fit_ento_model <- function(data,
     if (!is.null(model_config)) {
       pars <- model_config$pars
     } else {
-      pars <- get_default_parameters()
+      # Custom model: its parameter names are not known, so save everything
+      pars <- NA
+    }
+  }
+
+  # Replicated data for posterior predictive checks (already saved if
+  # everything is saved)
+  if (save_y_rep && !anyNA(pars)) {
+    if (is.null(custom_model) && model_type == "semifield") {
+      pars <- unique(c(pars, "y0_rep", "y1_rep"))
+    } else {
+      pars <- unique(c(pars, "y_rep"))
     }
   }
 
@@ -315,10 +295,6 @@ fit_ento_model <- function(data,
     if (!is.null(model_config)) {
       init_fun <- switch(model_type,
         "basic" = generate_inits_basic(stan_data$tr + 1),
-        "hierarchical_decay" = generate_inits_decay(
-          nb_treat = stan_data$tr + 1,
-          nb_days = stan_data$d
-        ),
         "semifield" = generate_inits_semifield(stan_data$n),
         generate_inits_basic(stan_data$tr + 1)  # fallback
       )
@@ -330,9 +306,8 @@ fit_ento_model <- function(data,
         init_fun <- "random"
       }
     }
-  } else if (is.function(init)) {
-    init_fun <- init
   } else {
+    # User-supplied function, list or Stan init option
     init_fun <- init
   }
 
@@ -340,6 +315,11 @@ fit_ento_model <- function(data,
   if (verbose) {
     cli::cli_alert_info("Fitting Stan model...")
     cli::cli_alert_info("Iterations: {iter} | Warmup: {warmup} | Chains: {chains}")
+  }
+
+  # rstan needs a single number: without a seed, draw one (rstan's default)
+  if (is.null(seed)) {
+    seed <- sample.int(.Machine$integer.max, 1)
   }
 
   stan_fit <- tryCatch(
@@ -363,6 +343,12 @@ fit_ento_model <- function(data,
       stop("Stan model fitting failed: ", e$message, call. = FALSE)
     }
   )
+
+  # rstan returns a fit without samples (mode 2) when sampling fails
+  if (stan_fit@mode != 0L) {
+    stop("Stan sampling failed and returned no samples; ",
+         "see the Stan messages above.", call. = FALSE)
+  }
 
   # Check for warnings
   check_stan_warnings(stan_fit, verbose = verbose)
@@ -391,7 +377,8 @@ fit_ento_model <- function(data,
 #' Converts formatted EHT data to Stan-compatible list.
 #'
 #' @param data Formatted EHT data frame. Can have uppercase (UA, UD, FA, FD)
-#'   or lowercase (ua, ud, fa, fd) endpoint columns.
+#'   or lowercase (ua, ud, fa, fd) endpoint columns. Treatment must be coded
+#'   0 (control), 1, ..., tr (see \code{\link{format_eht_data}}).
 #' @param use_likelihood Integer. 1 for normal fitting (default),
 #'   0 for prior predictive checks.
 #'
@@ -440,17 +427,17 @@ prepare_stan_data <- function(data, use_likelihood = 1) {
     stop("Missing required column: treatment", call. = FALSE)
   }
 
+  # Ensure treatment is coded 0 (control), 1, ..., tr
+  treatment_vec <- check_treatment_coding(data[[treat_col]])
+
   # Number of treatments (excluding control)
-  nb_treat <- length(unique(data[[treat_col]]))
+  nb_treat <- length(unique(treatment_vec))
 
   # Create outcome matrix
   y_matrix <- matrix(
     c(data[[ua_col]], data[[ud_col]], data[[fa_col]], data[[fd_col]]),
     ncol = 4
   )
-
-  # Ensure treatment is integer
-  treatment_vec <- as.integer(data[[treat_col]])
 
   stan_data <- list(
     N = nrow(data),
@@ -463,102 +450,60 @@ prepare_stan_data <- function(data, use_likelihood = 1) {
   return(stan_data)
 }
 
-#' Prepare data for hierarchical decay Stan model
+#' Check treatment coding expected by the Stan models
 #'
-#' Converts longitudinal EHT data to Stan-compatible list for the
-#' hierarchical time decay model.
+#' The Stan models index treatment-level parameters with \code{treat + 1} and
+#' treat \code{0} as the control arm, so treatment must be coded as
+#' consecutive integers 0, 1, ..., tr.
 #'
-#' @param data Formatted EHT data frame with required columns:
-#'   UA, UD, FA, FD, treatment, day, datej, fed, total.
-#' @param prior_settings List. Optional prior hyperparameters:
-#'   \itemize{
-#'     \item priorsigma_mean_logrates: Prior sigma for log rates (default: 6)
-#'     \item hierarchy: Variance for hierarchical effects (default: 1)
-#'   }
+#' @param treatment Vector of treatment codes.
 #'
-#' @return List with elements for hierarchical decay Stan model.
+#' @return The treatment codes as an integer vector.
 #'
-#' @export
-prepare_stan_data_decay <- function(data, prior_settings = NULL) {
-
-  # Get column names (case-insensitive)
-  col_names <- names(data)
-  col_names_lower <- tolower(col_names)
-
-  # Find required columns
-  get_col <- function(target) {
-    col_names[col_names_lower == tolower(target)]
+#' @keywords internal
+check_treatment_coding <- function(treatment) {
+  if (!is.numeric(treatment) || anyNA(treatment) ||
+      any(treatment != round(treatment))) {
+    stop("Treatment must be integer codes without missing values ",
+         "(0 = control, 1+ = treatments). ",
+         "Use format_eht_data() to encode treatment labels.", call. = FALSE)
   }
 
-  # Validate required columns
-  required <- c("UA", "UD", "FA", "FD", "treatment", "day", "datej", "fed", "total")
-  missing <- c()
-  for (req in required) {
-    if (length(get_col(req)) == 0) missing <- c(missing, req)
+  codes <- sort(unique(treatment))
+  if (!identical(as.integer(codes), seq.int(0L, length(codes) - 1L))) {
+    stop("Treatment must be coded 0 (control), 1, ..., ", length(codes) - 1,
+         " with no gaps. Found: ", paste(codes, collapse = ", "), ". ",
+         "Use format_eht_data(data, control_value = ...) to re-encode.",
+         call. = FALSE)
   }
 
-  if (length(missing) > 0) {
-    stop("Missing required columns for hierarchical_decay model: ",
-         paste(missing, collapse = ", "), call. = FALSE)
-  }
-
-  # Extract data
-  ua_col <- get_col("UA")
-  ud_col <- get_col("UD")
-  fa_col <- get_col("FA")
-  fd_col <- get_col("FD")
-
-  # Number of treatments and days
-  nb_treat <- length(unique(data[[get_col("treatment")]])) - 1
-  nb_days <- length(unique(data[[get_col("day")]]))
-
-  # Create y matrix (UA, F=FA+FD, UD) - 3 columns for this model
-  y_matrix <- matrix(
-    c(data[[ua_col]],
-      data[[get_col("FA")]] + data[[get_col("FD")]],
-      data[[ud_col]]),
-    ncol = 3
-  )
-
-  # Default prior settings
-  defaults <- list(
-    priorsigma_mean_logrates = 6,
-    hierarchy = 1
-  )
-
-  if (!is.null(prior_settings)) {
-    defaults[names(prior_settings)] <- prior_settings
-  }
-
-  stan_data <- list(
-    N = nrow(data),
-    tr = nb_treat,
-    d = nb_days,
-    total = as.integer(data[[get_col("total")]]),
-    datej = as.integer(data[[get_col("datej")]]),
-    day = as.integer(data[[get_col("day")]]),
-    treat = as.integer(data[[get_col("treatment")]]),
-    fed = as.integer(data[[get_col("fed")]]),
-    FA = as.integer(data[[get_col("FA")]]),
-    y = y_matrix,
-    priorsigma_mean_logrates = defaults$priorsigma_mean_logrates,
-    hierarchy = defaults$hierarchy
-  )
-
-  return(stan_data)
+  as.integer(treatment)
 }
 
 #' Prepare data for semifield Stan model
 #'
-#' Converts semifield experiment data to Stan-compatible list.
+#' Converts semifield experiment data to Stan-compatible list for the matched
+#' semifield model for a spatial repellent (Denz et al. 2021,
+#' \doi{10.1186/s13071-020-04560-x}).
 #'
-#' @param data Data frame or list with semifield experiment results.
-#'   Should contain y0 (control) and y1 (intervention) outcome matrices,
-#'   or columns H1, H2, H3, H4, T, L for each arm.
-#' @param prior_settings List. Optional prior hyperparameters:
+#' @param data List with the outcome matrices of matched experiments (one row
+#'   per night, same night order in both arms):
 #'   \itemize{
-#'     \item priorsigma_mean_logrates: Prior sigma (default: 2)
-#'     \item priorsigma_pikappa: Prior sigma for effect params (default: 1)
+#'     \item y0: Control arm
+#'     \item y1: Intervention arm
+#'   }
+#'   Columns are H1, H2, H3, H4 (human landing catches in hours 1, 2, 3 and
+#'   4-12), T (trap) and L (lost). Without a trap, the T column can be left
+#'   out (5 columns) and is then set to 0.
+#'   Optionally, beta0 and beta1: trap availability per night in each arm
+#'   (default 0, i.e. no trap, for a spatial repellent only). If the
+#'   compartments contained a trap (e.g. unbaited), pass its availability,
+#'   as in Denz et al. (2021), rather than leaving it at 0.
+#' @param prior_settings List. Optional prior hyperparameters (defaults as in
+#'   Denz et al. 2021):
+#'   \itemize{
+#'     \item priorsigma_mean_logrates: Prior sigma for log rates (default: 6)
+#'     \item priorsigma_pikappa: Prior sigma for effect params (default: 5)
 #'     \item hierarchy: Variance for hierarchical effects (default: 1)
 #'   }
 #'
@@ -576,13 +521,37 @@ prepare_stan_data_semifield <- function(data, prior_settings = NULL) {
          "See ?prepare_stan_data_semifield for details.", call. = FALSE)
   }
 
+  if (!identical(dim(y0), dim(y1))) {
+    stop("y0 and y1 must have the same dimensions (one row per matched night).",
+         call. = FALSE)
+  }
+  if (!ncol(y0) %in% c(5, 6)) {
+    stop("y0 and y1 must have 6 columns (H1, H2, H3, H4, T, L) ",
+         "or 5 columns without T (H1, H2, H3, H4, L).", call. = FALSE)
+  }
+
+  # Without a trap, add an empty T column before L
+  if (ncol(y0) == 5) {
+    y0 <- cbind(y0[, 1:4, drop = FALSE], 0, y0[, 5, drop = FALSE])
+    y1 <- cbind(y1[, 1:4, drop = FALSE], 0, y1[, 5, drop = FALSE])
+  }
+
   n <- nrow(y0)
   K <- ncol(y0)
 
+  # Trap availability per night (0 = no trap)
+  beta0 <- if (is.null(data$beta0)) rep(0, n) else rep_len(data$beta0, n)
+  beta1 <- if (is.null(data$beta1)) rep(0, n) else rep_len(data$beta1, n)
+
+  if (any(y0[beta0 == 0, 5] > 0) || any(y1[beta1 == 0, 5] > 0)) {
+    stop("Trap catches (T) found on nights without a trap (beta0/beta1 = 0).",
+         call. = FALSE)
+  }
+
   # Default prior settings
   defaults <- list(
-    priorsigma_mean_logrates = 2,
-    priorsigma_pikappa = 1,
+    priorsigma_mean_logrates = 6,
+    priorsigma_pikappa = 5,
     hierarchy = 1
   )
 
@@ -595,6 +564,8 @@ prepare_stan_data_semifield <- function(data, prior_settings = NULL) {
     K = K,
     y0 = y0,
     y1 = y1,
+    beta0 = beta0,
+    beta1 = beta1,
     priorsigma_mean_logrates = defaults$priorsigma_mean_logrates,
     priorsigma_pikappa = defaults$priorsigma_pikappa,
     hierarchy = defaults$hierarchy
@@ -614,11 +585,11 @@ prepare_stan_data_semifield <- function(data, prior_settings = NULL) {
 #' @return A function that generates a named list of initial values when called.
 #'   The returned function takes no arguments and produces:
 #'   \itemize{
-#'     \item \code{InitialPostprandialkillingEfficacy}: Vector of length nb_treat,
+#'     \item \code{PostprandialKilling}: Vector of length nb_treat,
 #'       initialized to random values in (0.1, 0.9)
 #'     \item \code{KillingDuringHostSeeking}: Vector of length nb_treat,
 #'       initialized to random values in (0.1, 0.9)
-#'     \item \code{InitialRepellencyRate}: Vector of length nb_treat,
+#'     \item \code{HostAvailabilityReduction}: Vector of length nb_treat,
 #'       initialized to random values in (0.1, 0.9)
 #'     \item \code{a}: Scalar, log-scale baseline attack rate, initialized near 0
 #'     \item \code{m}: Scalar, log-scale baseline mortality rate, initialized near 0
@@ -650,9 +621,9 @@ prepare_stan_data_semifield <- function(data, prior_settings = NULL) {
 #' \preformatted{
 #' my_inits <- function() {
 #'   list(
-#'     InitialPostprandialkillingEfficacy = rep(0.5, nb_treat),
+#'     PostprandialKilling = rep(0.5, nb_treat),
 #'     KillingDuringHostSeeking = rep(0.3, nb_treat),
-#'     InitialRepellencyRate = rep(0.4, nb_treat),
+#'     HostAvailabilityReduction = rep(0.4, nb_treat),
 #'     a = 0, m = 0, b = 0
 #'   )
 #' }
@@ -672,7 +643,6 @@ prepare_stan_data_semifield <- function(data, prior_settings = NULL) {
 #' }
 #'
 #' @seealso
-#' \code{\link{generate_inits_decay}} for hierarchical decay model,
 #' \code{\link{generate_inits_semifield}} for semifield model,
 #' \code{\link{fit_ento_model}} for the main fitting function
 #'
@@ -680,76 +650,15 @@ prepare_stan_data_semifield <- function(data, prior_settings = NULL) {
 generate_inits_basic <- function(nb_treat) {
   function() {
     list(
-      # Treatment-level efficacy parameters (vectors)
-      InitialPostprandialkillingEfficacy = runif(nb_treat, 0.1, 0.9),
-      KillingDuringHostSeeking = runif(nb_treat, 0.1, 0.9),
-      InitialRepellencyRate = runif(nb_treat, 0.1, 0.9),
+      # Treatment-level efficacy parameters (vectors; array() keeps a vector
+      # of length 1 a vector for Stan)
+      PostprandialKilling = array(stats::runif(nb_treat, 0.1, 0.9)),
+      KillingDuringHostSeeking = array(stats::runif(nb_treat, 0.1, 0.9)),
+      HostAvailabilityReduction = array(stats::runif(nb_treat, 0.1, 0.9)),
       # Scalar baseline parameters (log/logit scale)
-      a = rnorm(1, 0, 1),  # log(alpha_0) - baseline attack rate
-      m = rnorm(1, 0, 1),  # log(mu_0) - baseline mortality
-      b = rnorm(1, 0, 1)   # logit(pB_0) - baseline blood-feeding survival
-    )
-  }
-}
-
-#' Generate initial values for hierarchical decay model
-#'
-#' Creates random initial values for MCMC chains for the hierarchical decay model.
-#' This model includes Weibull decay parameters for temporal effects.
-#'
-#' @param nb_treat Number of treatments (including control). Parameters are
-#'   vectors of length `nb_treat`.
-#' @param nb_days Number of days in the study. Used to size hierarchical
-#'   random effects. If NULL, defaults to 10.
-#'
-#' @return A function that generates a named list of initial values:
-#'   \itemize{
-#'     \item \code{InitialPostprandialkillingEfficacy}: Vector (nb_treat)
-#'     \item \code{KillingDuringHostSeeking}: Vector (nb_treat)
-#'     \item \code{InitialRepellencyRate}: Vector (nb_treat)
-#'     \item \code{beta}: Weibull scale parameter for decay (nb_treat)
-#'     \item \code{kappa}: Weibull shape parameter for decay (nb_treat)
-#'     \item \code{a}, \code{m}: Log-scale baseline rates
-#'     \item \code{r_prob_surviving_feeding_d}: Logit-scale survival
-#'     \item \code{sigma_a}, \code{sigma_m}, \code{sigma_prob_surviving_feeding_d}:
-#'       Hierarchical standard deviations
-#'     \item \code{phi}, \code{psi}, \code{omega_prob_surviving_feeding_d}:
-#'       Day-level random effects (nb_days)
-#'   }
-#'
-#' @details
-#' The hierarchical decay model adds:
-#' - **Weibull decay**: Effect decays as `exp(-(beta * t)^kappa)` where t is
-#'   days since treatment. Half-life L = (log(2)^(1/kappa)) / beta.
-#' - **Day-level hierarchy**: Random effects phi, psi, omega capture day-to-day
-#'   variation in baseline rates.
-#'
-#' @seealso \code{\link{generate_inits_basic}}, \code{\link{fit_ento_model}}
-#'
-#' @export
-generate_inits_decay <- function(nb_treat, nb_days = NULL) {
-  if (is.null(nb_days)) nb_days <- 10  # default
-  function() {
-    list(
-      # Treatment-level efficacy parameters
-      InitialPostprandialkillingEfficacy = runif(nb_treat, 0.1, 0.9),
-      KillingDuringHostSeeking = runif(nb_treat, 0.1, 0.9),
-      InitialRepellencyRate = runif(nb_treat, 0.1, 0.9),
-      # Weibull decay parameters
-      beta = runif(nb_treat, 0.001, 0.1),
-      kappa = runif(nb_treat, 0.5, 2),
-      # Baseline rate parameters (log/logit scale)
-      a = rnorm(1, 0, 1),
-      m = rnorm(1, 0, 1),
-      r_prob_surviving_feeding_d = rnorm(1, 0, 1),
-      # Hierarchical standard deviations
-      sigma_a = abs(rnorm(1, 0, 0.5)),
-      sigma_m = abs(rnorm(1, 0, 0.5)),
-      sigma_prob_surviving_feeding_d = abs(rnorm(1, 0, 0.5)),
-      # Day-level random effects (standard normal)
-      phi = rnorm(nb_days, 0, 1),
-      psi = rnorm(nb_days, 0, 1),
-      omega_prob_surviving_feeding_d = rnorm(nb_days, 0, 1)
+      a = stats::rnorm(1, 0, 1),  # log(alpha_0) - baseline attack rate
+      m = stats::rnorm(1, 0, 1),  # log(mu_0) - baseline mortality
+      b = stats::rnorm(1, 0, 1)   # logit(pC_0) - baseline blood-feeding survival
     )
   }
 }
@@ -764,19 +673,22 @@ generate_inits_decay <- function(nb_treat, nb_days = NULL) {
 #'
 #' @return A function that generates a named list of initial values:
 #'   \itemize{
-#'     \item \code{rho}: Effect multiplier for intervention (log-normal prior)
-#'     \item \code{a}, \code{b}, \code{m}: Log-scale baseline rates
-#'     \item \code{sigma_a}, \code{sigma_b}, \code{sigma_m}: Hierarchical SDs
-#'     \item \code{phi}, \code{eta}, \code{psi}: Experiment-level random effects (n)
+#'     \item \code{HostAvailabilityReduction}: Reduction in host availability (pi in the article)
+#'     \item \code{KillingDuringHostSeeking}: Killing/disarming during host
+#'       seeking (kappa in the article)
+#'     \item \code{a}, \code{m}: Log-scale baseline rates
+#'     \item \code{sigma_a}, \code{sigma_m}: Hierarchical SDs
+#'     \item \code{phi}, \code{psi}: Experiment-level random effects (n)
 #'   }
 #'
 #' @details
-#' The semifield model estimates:
+#' The semifield model estimates, per night:
 #' - `alpha_H`: Rate of host-seeking success
-#' - `alpha_T`: Rate of trap entry
 #' - `mu`: Mortality rate
 #'
-#' The intervention effect is modeled as `alpha_T1 = rho * alpha_H0`.
+#' The intervention effects are modeled as
+#' `alpha_H1 = (1 - HostAvailabilityReduction) * alpha_H0` and
+#' `mu1 = mu0 + KillingDuringHostSeeking * alpha_H0`.
 #'
 #' @seealso \code{\link{generate_inits_basic}}, \code{\link{fit_ento_model}}
 #'
@@ -784,26 +696,21 @@ generate_inits_decay <- function(nb_treat, nb_days = NULL) {
 generate_inits_semifield <- function(n) {
   function() {
     list(
-      # Effect parameter
-      rho = runif(1, 0.5, 2),
+      # Effect parameters
+      HostAvailabilityReduction = stats::runif(1, 0.1, 0.9),
+      KillingDuringHostSeeking = stats::runif(1, 0.1, 0.9),
       # Log-scale baseline rates
-      a = rnorm(1, 0, 0.5),
-      b = rnorm(1, 0, 0.5),
-      m = rnorm(1, 0, 0.5),
+      a = stats::rnorm(1, 0, 0.5),
+      m = stats::rnorm(1, 0, 0.5),
       # Hierarchical standard deviations
-      sigma_a = abs(rnorm(1, 0, 0.3)),
-      sigma_b = abs(rnorm(1, 0, 0.3)),
-      sigma_m = abs(rnorm(1, 0, 0.3)),
-      # Experiment-level random effects
-      phi = rnorm(n, 0, 1),
-      eta = rnorm(n, 0, 1),
-      psi = rnorm(n, 0, 1)
+      sigma_a = abs(stats::rnorm(1, 0, 0.3)),
+      sigma_m = abs(stats::rnorm(1, 0, 0.3)),
+      # Experiment-level random effects (array() keeps n = 1 a vector)
+      phi = array(stats::rnorm(n, 0, 1)),
+      psi = array(stats::rnorm(n, 0, 1))
     )
   }
 }
-
-# Backward compatibility alias
-generate_inits <- generate_inits_basic
 
 #' Get default parameters to extract
 #'
@@ -812,14 +719,61 @@ generate_inits <- generate_inits_basic
 #' @keywords internal
 get_default_parameters <- function() {
   c(
-    "InitialPostprandialkillingEfficacy",
+    "PostprandialKilling",
     "KillingDuringHostSeeking",
-    "InitialRepellencyRate",
-    "InitialPreprandialkillingEfficacy",
+    "KillingDuringHostSeekingAbsolute",
+    "HostAvailabilityReduction",
+    "PreprandialKilling",
     "alpha_0",
     "mu_0",
-    "pB_0"
+    "pC_0"
   )
+}
+
+# Former parameter names (values), by current name (names)
+.FORMER_PARAMETER_NAMES <- c(
+  HostAvailabilityReduction = "InitialRepellencyRate",
+  PostprandialKilling = "InitialPostprandialkillingEfficacy",
+  PreprandialKilling = "InitialPreprandialkillingEfficacy",
+  pC_0 = "pB_0"
+)
+
+#' Use former parameter names for fits made with them
+#'
+#' Replaces requested parameters that are not saved in the fit by their
+#' former name when the fit has it (e.g. custom models written before the
+#' renaming), with a message.
+#'
+#' @param pars Character vector. Requested parameter names.
+#' @param saved Character vector. Quantities saved in the fit.
+#'
+#' @return \code{pars}, with former names where needed.
+#'
+#' @noRd
+use_former_names <- function(pars, saved) {
+  former <- unname(.FORMER_PARAMETER_NAMES[pars])
+  swap <- !is.na(former) & !pars %in% saved & former %in% saved
+  if (any(swap)) {
+    message("Found under their former names: ",
+            paste(former[swap], collapse = ", "),
+            ". Results are reported under the current names (",
+            paste(pars[swap], collapse = ", "), ").")
+    pars[swap] <- former[swap]
+  }
+  pars
+}
+
+#' Report former parameter names under their current names
+#'
+#' @param x Character vector of parameter names.
+#'
+#' @return \code{x}, with former names replaced by current names.
+#'
+#' @noRd
+current_names <- function(x) {
+  idx <- match(x, .FORMER_PARAMETER_NAMES)
+  x[!is.na(idx)] <- names(.FORMER_PARAMETER_NAMES)[idx[!is.na(idx)]]
+  x
 }
 
 #' Check Stan warnings
@@ -842,7 +796,11 @@ check_stan_warnings <- function(stan_fit, verbose = TRUE) {
   }
 
   # Check R-hat
-  summary_fit <- rstan::summary(stan_fit)$summary
+  # Saved quantities only; replicated data (y_rep, y0_rep, y1_rep) are not
+  # parameters, so they are left out
+  summary_fit <- rstan::summary(
+    stan_fit, pars = setdiff(stan_fit@sim$pars_oi, c("y_rep", "y0_rep", "y1_rep"))
+  )$summary
   max_rhat <- max(summary_fit[, "Rhat"], na.rm = TRUE)
 
   if (max_rhat > 1.1 && verbose) {
@@ -861,8 +819,10 @@ check_stan_warnings <- function(stan_fit, verbose = TRUE) {
 #' @param stan_fit A stanfit object from \code{fit_ento_model}.
 #' @param data Optional. Original data frame with vector_control_product and treatment
 #'   columns for labeling.
-#' @param pars Character vector. Parameters to extract. If NULL, uses default
-#'   intervention parameters.
+#' @param pars Character vector. Parameters to extract. If NULL, uses the
+#'   intervention parameters and the baseline parameters alpha_0, mu_0 and
+#'   pC_0 (see \code{get_default_parameters()}). Parameters not in the model
+#'   are skipped.
 #' @param probs Numeric vector. Quantiles for credible intervals.
 #'   Default is c(0.025, 0.975) for 95% CI.
 #' @param digits Integer. Number of decimal places to round to.
@@ -870,7 +830,8 @@ check_stan_warnings <- function(stan_fit, verbose = TRUE) {
 #' @return A tibble with columns:
 #'   \itemize{
 #'     \item param: Parameter name
-#'     \item treatment: Treatment index (1, 2, ...)
+#'     \item treatment: Treatment index (1, 2, ...; NA for scalar parameters
+#'       such as alpha_0, mu_0 and pC_0)
 #'     \item mean: Posterior mean
 #'     \item lower: Lower credible interval bound
 #'     \item upper: Upper credible interval bound
@@ -893,21 +854,19 @@ extract_stan_summary <- function(stan_fit,
                                   probs = c(0.025, 0.975),
                                   digits = 3) {
 
-  # Default parameters
+  # Default parameters (intervention effects and baseline parameters)
   if (is.null(pars)) {
-    pars <- c("InitialPostprandialkillingEfficacy",
-              "InitialPreprandialkillingEfficacy",
-              "InitialRepellencyRate",
-              "KillingDuringHostSeeking")
+    pars <- get_default_parameters()
   }
 
-  # Check which parameters exist in the model
-  model_pars <- stan_fit@model_pars
-  pars_exist <- pars[pars %in% model_pars]
+  # Check which parameters are saved in the fit (former names accepted)
+  saved_pars <- stan_fit@sim$pars_oi
+  pars <- use_former_names(pars, saved_pars)
+  pars_exist <- pars[pars %in% saved_pars]
 
   if (length(pars_exist) == 0) {
     stop("None of the requested parameters found in model. Available: ",
-         paste(model_pars, collapse = ", "), call. = FALSE)
+         paste(saved_pars, collapse = ", "), call. = FALSE)
   }
 
   # Get summary
@@ -919,36 +878,38 @@ extract_stan_summary <- function(stan_fit,
 
   # Parse parameter names and indices
   # Pattern: paramname[index] or paramname
-  summary_df <- summary_df %>%
+  summary_df <- summary_df |>
     dplyr::mutate(
-      param = gsub("\\[.*\\]", "", index),
-      treatment = as.integer(gsub(".*\\[([0-9]+)\\].*", "\\1", index))
-    ) %>%
-    dplyr::mutate(
-      treatment = ifelse(grepl("\\[", index), treatment, NA_integer_)
+      param = current_names(gsub("\\[.*\\]", "", .data$index)),
+      # Scalar parameters have no index and get NA
+      treatment = as.integer(ifelse(
+        grepl("\\[", .data$index),
+        gsub(".*\\[([0-9]+)\\].*", "\\1", .data$index),
+        NA_character_
+      ))
     )
 
   # Filter to treatment effects only (index > 1, since 1 is control)
-  summary_df <- summary_df %>%
-    dplyr::filter(is.na(treatment) | treatment > 1) %>%
-    dplyr::mutate(treatment = treatment - 1)  # Convert to 1-indexed treatments
+  summary_df <- summary_df |>
+    dplyr::filter(is.na(.data$treatment) | .data$treatment > 1) |>
+    dplyr::mutate(treatment = .data$treatment - 1)  # Convert to 1-indexed treatments
 
   # Select and rename columns
   lower_col <- paste0(probs[1] * 100, "%")
   upper_col <- paste0(probs[2] * 100, "%")
 
-  result <- summary_df %>%
+  result <- summary_df |>
     dplyr::select(
-      param,
-      treatment,
-      mean = mean,
+      "param",
+      "treatment",
+      mean = "mean",
       lower = dplyr::all_of(lower_col),
       upper = dplyr::all_of(upper_col)
-    ) %>%
+    ) |>
     dplyr::mutate(
-      mean = round(mean, digits),
-      lower = round(lower, digits),
-      upper = round(upper, digits)
+      mean = round(.data$mean, digits),
+      lower = round(.data$lower, digits),
+      upper = round(.data$upper, digits)
     )
 
   # Join with vector control product names if data provided
@@ -957,7 +918,7 @@ extract_stan_summary <- function(stan_fit,
     treatment_labels <- unique(data[, c("vector_control_product", "treatment")])
     treatment_labels <- treatment_labels[treatment_labels$treatment > 0, ]
 
-    result <- result %>%
+    result <- result |>
       dplyr::left_join(treatment_labels, by = "treatment")
   }
 
@@ -966,24 +927,29 @@ extract_stan_summary <- function(stan_fit,
 
 #' Extract posterior samples from Stan fit
 #'
-#' Extracts posterior samples or MAP (Maximum A Posteriori) estimates
-#' from a fitted Stan model.
+#' Extracts posterior samples or the posteriorMax estimate from a fitted
+#' Stan model. The posteriorMax estimate is the posterior draw with the
+#' highest log posterior density (\code{lp__}) among the samples.
 #'
 #' @param stan_fit A stanfit object from \code{fit_ento_model}.
 #' @param data Optional. Original data frame with vector_control_product and treatment
 #'   columns for labeling.
-#' @param pars Character vector. Parameters to extract. If NULL, uses default
-#'   intervention parameters.
+#' @param pars Character vector. Parameters to extract. If NULL, uses the
+#'   intervention parameters and the baseline parameters alpha_0, mu_0 and
+#'   pC_0 (see \code{get_default_parameters()}). Parameters not in the model
+#'   are skipped.
 #' @param n_samples Integer. Number of posterior samples to return.
 #'   If NULL, returns all samples.
-#' @param map_only Logical. If TRUE, returns only the MAP estimate (sample with
-#'   highest log posterior). Default is FALSE.
+#' @param posteriorMax_only Logical. If TRUE, returns only the posteriorMax
+#'   estimate (sample with highest log posterior). Default is FALSE.
+#' @param map_only Deprecated, use \code{posteriorMax_only}.
 #'
 #' @return A tibble with columns:
 #'   \itemize{
 #'     \item sample: Sample index
 #'     \item param: Parameter name
-#'     \item treatment: Treatment index
+#'     \item treatment: Treatment index (NA for scalar parameters such as
+#'       alpha_0, mu_0 and pC_0)
 #'     \item value: Parameter value
 #'     \item vector_control_product: Treatment label (if data provided)
 #'   }
@@ -993,8 +959,8 @@ extract_stan_summary <- function(stan_fit,
 #' # Extract all posterior samples
 #' samples <- extract_stan_posteriors(fit)
 #'
-#' # Extract MAP estimate only
-#' map_estimate <- extract_stan_posteriors(fit, map_only = TRUE)
+#' # Extract posteriorMax estimate only
+#' posteriorMax <- extract_stan_posteriors(fit, posteriorMax_only = TRUE)
 #'
 #' # Extract 100 random samples
 #' samples <- extract_stan_posteriors(fit, n_samples = 100)
@@ -1005,23 +971,30 @@ extract_stan_posteriors <- function(stan_fit,
                                      data = NULL,
                                      pars = NULL,
                                      n_samples = NULL,
-                                     map_only = FALSE) {
+                                     posteriorMax_only = FALSE,
+                                     map_only = NULL) {
 
-  # Default parameters (include lp__ for MAP)
-  if (is.null(pars)) {
-    pars <- c("InitialPostprandialkillingEfficacy",
-              "InitialPreprandialkillingEfficacy",
-              "InitialRepellencyRate",
-              "KillingDuringHostSeeking",
-              "alpha_0", "mu_0")
+  # Deprecated argument name
+  if (!is.null(map_only)) {
+    warning("`map_only` is deprecated, use `posteriorMax_only` instead.",
+            call. = FALSE)
+    posteriorMax_only <- map_only
   }
 
-  # Always include lp__ for MAP
+  # Default parameters (intervention effects and baseline parameters)
+  if (is.null(pars)) {
+    pars <- get_default_parameters()
+  }
+
+  # Former names accepted (e.g. custom models written before the renaming)
+  saved_pars <- stan_fit@sim$pars_oi
+  pars <- use_former_names(pars, saved_pars)
+
+  # Always include lp__ for posteriorMax
   pars_with_lp <- unique(c(pars, "lp__"))
 
-  # Check which parameters exist
-  model_pars <- stan_fit@model_pars
-  pars_exist <- pars_with_lp[pars_with_lp %in% c(model_pars, "lp__")]
+  # Check which parameters are saved in the fit
+  pars_exist <- pars_with_lp[pars_with_lp %in% c(saved_pars, "lp__")]
 
   # Extract posterior samples
   fit_extract <- rstan::extract(stan_fit, pars = pars_exist, inc_warmup = FALSE)
@@ -1029,10 +1002,10 @@ extract_stan_posteriors <- function(stan_fit,
   # Get total number of samples
   total_samples <- length(fit_extract$lp__)
 
-  if (map_only) {
-    # Find MAP estimate
-    id_MAP <- which.max(fit_extract$lp__)
-    sample_ids <- id_MAP
+  if (posteriorMax_only) {
+    # Find posteriorMax estimate
+    id_posteriorMax <- which.max(fit_extract$lp__)
+    sample_ids <- id_posteriorMax
   } else if (!is.null(n_samples) && n_samples < total_samples) {
     # Random subset of samples
     sample_ids <- sample(1:total_samples, n_samples)
@@ -1064,12 +1037,12 @@ extract_stan_posteriors <- function(stan_fit,
         }
       }
     } else {
-      # Scalar parameter
+      # Scalar parameter (not treatment-specific)
       for (s in sample_ids) {
         results[[length(results) + 1]] <- data.frame(
           sample = s,
           param = par_name,
-          treatment = 0,
+          treatment = NA_real_,
           value = par_samples[s],
           stringsAsFactors = FALSE
         )
@@ -1078,17 +1051,18 @@ extract_stan_posteriors <- function(stan_fit,
   }
 
   result <- dplyr::bind_rows(results)
+  result$param <- current_names(result$param)
 
-  # Filter to treatment effects only (exclude control, treatment = 0)
-  result <- result %>%
-    dplyr::filter(treatment > 0)
+  # Exclude control (treatment = 0), keep scalar parameters (treatment = NA)
+  result <- result |>
+    dplyr::filter(is.na(.data$treatment) | .data$treatment > 0)
 
   # Join with vector control product names if data provided
   if (!is.null(data) && "vector_control_product" %in% names(data)) {
     treatment_labels <- unique(data[, c("vector_control_product", "treatment")])
     treatment_labels <- treatment_labels[treatment_labels$treatment > 0, ]
 
-    result <- result %>%
+    result <- result |>
       dplyr::left_join(treatment_labels, by = "treatment")
   }
 
@@ -1102,7 +1076,8 @@ extract_stan_posteriors <- function(stan_fit,
 #'
 #' @param stan_fit A stanfit object from \code{fit_ento_model}.
 #' @param data Optional. Original data frame for treatment labels.
-#' @param pars Character vector. Parameters to extract.
+#' @param pars Character vector. Parameters to extract. If NULL, uses the
+#'   same defaults as \code{\link{extract_stan_posteriors}}.
 #'
 #' @return A tibble with posteriorMax estimates for each parameter and treatment.
 #'
@@ -1113,5 +1088,6 @@ extract_stan_posteriors <- function(stan_fit,
 #'
 #' @export
 extract_posteriorMax <- function(stan_fit, data = NULL, pars = NULL) {
-  extract_stan_posteriors(stan_fit, data = data, pars = pars, map_only = TRUE)
+  extract_stan_posteriors(stan_fit, data = data, pars = pars,
+                          posteriorMax_only = TRUE)
 }

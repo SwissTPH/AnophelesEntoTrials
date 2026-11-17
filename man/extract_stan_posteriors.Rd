@@ -9,45 +9,52 @@ extract_stan_posteriors(
   data = NULL,
   pars = NULL,
   n_samples = NULL,
-  map_only = FALSE
+  posteriorMax_only = FALSE,
+  map_only = NULL
 )
 }
 \arguments{
 \item{stan_fit}{A stanfit object from \code{fit_ento_model}.}
 
-\item{data}{Optional. Original data frame with insecticide_name and treatment
+\item{data}{Optional. Original data frame with vector_control_product and treatment
 columns for labeling.}
 
-\item{pars}{Character vector. Parameters to extract. If NULL, uses default
-intervention parameters.}
+\item{pars}{Character vector. Parameters to extract. If NULL, uses the
+intervention parameters and the baseline parameters alpha_0, mu_0 and
+pC_0 (see \code{get_default_parameters()}). Parameters not in the model
+are skipped.}
 
 \item{n_samples}{Integer. Number of posterior samples to return.
 If NULL, returns all samples.}
 
-\item{map_only}{Logical. If TRUE, returns only the MAP estimate (sample with
-highest log posterior). Default is FALSE.}
+\item{posteriorMax_only}{Logical. If TRUE, returns only the posteriorMax
+estimate (sample with highest log posterior). Default is FALSE.}
+
+\item{map_only}{Deprecated, use \code{posteriorMax_only}.}
 }
 \value{
 A tibble with columns:
 \itemize{
 \item sample: Sample index
 \item param: Parameter name
-\item treatment: Treatment index
+\item treatment: Treatment index (NA for scalar parameters such as
+alpha_0, mu_0 and pC_0)
 \item value: Parameter value
-\item insecticide_name: Treatment label (if data provided)
+\item vector_control_product: Treatment label (if data provided)
 }
 }
 \description{
-Extracts posterior samples or MAP (Maximum A Posteriori) estimates
-from a fitted Stan model.
+Extracts posterior samples or the posteriorMax estimate from a fitted
+Stan model. The posteriorMax estimate is the posterior draw with the
+highest log posterior density (\code{lp__}) among the samples.
 }
 \examples{
 \dontrun{
 # Extract all posterior samples
 samples <- extract_stan_posteriors(fit)
 
-# Extract MAP estimate only
-map_estimate <- extract_stan_posteriors(fit, map_only = TRUE)
+# Extract posteriorMax estimate only
+posteriorMax <- extract_stan_posteriors(fit, posteriorMax_only = TRUE)
 
 # Extract 100 random samples
 samples <- extract_stan_posteriors(fit, n_samples = 100)

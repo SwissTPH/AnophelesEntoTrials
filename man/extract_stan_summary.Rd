@@ -15,11 +15,13 @@ extract_stan_summary(
 \arguments{
 \item{stan_fit}{A stanfit object from \code{fit_ento_model}.}
 
-\item{data}{Optional. Original data frame with insecticide_name and treatment
+\item{data}{Optional. Original data frame with vector_control_product and treatment
 columns for labeling.}
 
-\item{pars}{Character vector. Parameters to extract. If NULL, uses default
-intervention parameters.}
+\item{pars}{Character vector. Parameters to extract. If NULL, uses the
+intervention parameters and the baseline parameters alpha_0, mu_0 and
+pC_0 (see \code{get_default_parameters()}). Parameters not in the model
+are skipped.}
 
 \item{probs}{Numeric vector. Quantiles for credible intervals.
 Default is c(0.025, 0.975) for 95\% CI.}
@@ -30,16 +32,17 @@ Default is c(0.025, 0.975) for 95\% CI.}
 A tibble with columns:
 \itemize{
 \item param: Parameter name
-\item treatment: Treatment index (1, 2, ...)
+\item treatment: Treatment index (1, 2, ...; NA for scalar parameters
+such as alpha_0, mu_0 and pC_0)
 \item mean: Posterior mean
 \item lower: Lower credible interval bound
 \item upper: Upper credible interval bound
-\item insecticide_name: Treatment label (if data provided)
+\item vector_control_product: Treatment label (if data provided)
 }
 }
 \description{
 Extracts parameter summaries (mean, credible intervals) from a fitted Stan model.
-Joins with treatment labels if data with insecticide_name is provided.
+Joins with treatment labels if data with vector_control_product is provided.
 }
 \examples{
 \dontrun{

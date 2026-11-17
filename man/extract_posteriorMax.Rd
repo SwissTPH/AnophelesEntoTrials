@@ -11,7 +11,8 @@ extract_posteriorMax(stan_fit, data = NULL, pars = NULL)
 
 \item{data}{Optional. Original data frame for treatment labels.}
 
-\item{pars}{Character vector. Parameters to extract.}
+\item{pars}{Character vector. Parameters to extract. If NULL, uses the
+same defaults as \code{\link{extract_stan_posteriors}}.}
 }
 \value{
 A tibble with posteriorMax estimates for each parameter and treatment.

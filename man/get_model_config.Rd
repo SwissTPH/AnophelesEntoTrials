@@ -7,7 +7,7 @@
 get_model_config(model_type)
 }
 \arguments{
-\item{model_type}{Character. One of "basic", "hierarchical_decay", "semifield".}
+\item{model_type}{Character. One of "basic", "semifield".}
 }
 \value{
 List with model file path, default parameters, and data preparation function.

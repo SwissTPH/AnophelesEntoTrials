@@ -1,4 +1,3 @@
-
 ---
 title: "Workflow: Using Custom Stan Models"
 output: rmarkdown::html_vignette
@@ -24,7 +23,7 @@ This vignette demonstrates how to use custom Stan models with the `AnophelesEnto
 
 ## Overview
 
-The package supports custom models through three mechanisms:
+The package supports custom models through four mechanisms:
 
 1. **Custom Stan file**: Provide path to your own `.stan` file
 2. **Custom Stan data**: Provide your own data list matching your model's requirements
@@ -51,27 +50,27 @@ functions {
   real P_UD(real alpha, real mu) {
     return (1 - P_UA(alpha, mu)) * mu / (alpha + mu);
   }
-  real P_FA(real alpha, real mu, real PB) {
-    return P_F(alpha, mu) * PB;
+  real P_FA(real alpha, real mu, real PC) {
+    return P_F(alpha, mu) * PC;
   }
-  real P_FD(real alpha, real mu, real PB) {
-    return P_F(alpha, mu) * (1 - PB);
+  real P_FD(real alpha, real mu, real PC) {
+    return P_F(alpha, mu) * (1 - PC);
   }
 }
 
 data {
   int<lower=0> N;                // number of observations
   int<lower=0> tr;               // number of treatments
-  int treat[N];                  // treatment index
-  int<lower=0> y[N, 4];          // outcomes (UA, UD, FA, FD)
+  array[N] int treat;            // treatment index
+  array[N, 4] int<lower=0> y;    // outcomes (UA, UD, FA, FD)
   vector[N] net_age;             // net age in months (NEW!)
   int<lower=0, upper=1> use_likelihood;
 }
 
 parameters {
-  vector<lower=0, upper=1>[tr+1] InitialPostprandialkillingEfficacy;
+  vector<lower=0, upper=1>[tr+1] PostprandialKilling;
   vector<lower=0>[tr+1] KillingDuringHostSeeking;
-  vector<lower=0, upper=1>[tr+1] InitialRepellencyRate;
+  vector<lower=0, upper=1>[tr+1] HostAvailabilityReduction;
 
   // NEW: Net age decay parameter
   real<lower=0> net_age_decay;
@@ -84,15 +83,15 @@ parameters {
 transformed parameters {
   real<lower=0> alpha_0 = exp(a);
   real<lower=0> mu_0 = exp(m);
-  real<lower=0, upper=1> pB_0 = inv_logit(b);
+  real<lower=0, upper=1> pC_0 = inv_logit(b);
 }
 
 model {
   matrix[4, N] theta;
 
   // Priors
-  target += uniform_lpdf(InitialPostprandialkillingEfficacy | 0, 1);
-  target += lognormal_lpdf(1 - InitialRepellencyRate | 0, 5);
+  target += uniform_lpdf(PostprandialKilling | 0, 1);
+  target += lognormal_lpdf(1 - HostAvailabilityReduction | 0, 5);
   target += lognormal_lpdf(KillingDuringHostSeeking | 0, 5);
 
   // Prior for net age decay (half-normal)
@@ -110,22 +109,22 @@ model {
     if (treat[i] == 0) {
       theta[1, i] = P_UA(alpha_0, mu_0);
       theta[2, i] = P_UD(alpha_0, mu_0);
-      theta[3, i] = P_FA(alpha_0, mu_0, pB_0);
-      theta[4, i] = P_FD(alpha_0, mu_0, pB_0);
+      theta[3, i] = P_FA(alpha_0, mu_0, pC_0);
+      theta[4, i] = P_FD(alpha_0, mu_0, pC_0);
     } else {
       // Apply efficacy with decay
-      real eff_repellency = InitialRepellencyRate[treat[i]+1] * decay_factor;
+      real eff_availability = HostAvailabilityReduction[treat[i]+1] * decay_factor;
       real eff_killing = KillingDuringHostSeeking[treat[i]+1] * decay_factor;
-      real eff_postprandial = InitialPostprandialkillingEfficacy[treat[i]+1] * decay_factor;
+      real eff_postprandial = PostprandialKilling[treat[i]+1] * decay_factor;
 
-      real alpha_i = (1 - eff_repellency) * alpha_0;
+      real alpha_i = (1 - eff_availability) * alpha_0;
       real mu_i = mu_0 + eff_killing * alpha_0;
-      real pBi = pB_0 * (1 - eff_postprandial);
+      real pCi = pC_0 * (1 - eff_postprandial);
 
       theta[1, i] = P_UA(alpha_i, mu_i);
       theta[2, i] = P_UD(alpha_i, mu_i);
-      theta[3, i] = P_FA(alpha_i, mu_i, pBi);
-      theta[4, i] = P_FD(alpha_i, mu_i, pBi);
+      theta[3, i] = P_FA(alpha_i, mu_i, pCi);
+      theta[4, i] = P_FD(alpha_i, mu_i, pCi);
     }
 
     if (use_likelihood == 1)
@@ -173,9 +172,9 @@ custom_stan_data <- list(
 # Custom initialization function
 custom_init <- function() {
   list(
-    InitialPostprandialkillingEfficacy = runif(2, 0.2, 0.8),
+    PostprandialKilling = runif(2, 0.2, 0.8),
     KillingDuringHostSeeking = runif(2, 0.1, 0.5),
-    InitialRepellencyRate = runif(2, 0.2, 0.8),
+    HostAvailabilityReduction = runif(2, 0.2, 0.8),
     net_age_decay = runif(1, 0.01, 0.05),  # Custom parameter init
     a = rnorm(1, -2, 0.5),
     m = rnorm(1, -2, 0.5),
@@ -188,14 +187,15 @@ custom_init <- function() {
 
 ```{r fit-custom-model}
 # Fit with custom model
+# (pars is optional: by default, all quantities of a custom model are saved)
 fit_custom <- fit_ento_model(
   data = custom_data,
   custom_model = "path/to/custom_model_net_age.stan",
   stan_data = custom_stan_data,
   pars = c(
-    "InitialPostprandialkillingEfficacy",
+    "PostprandialKilling",
     "KillingDuringHostSeeking",
-    "InitialRepellencyRate",
+    "HostAvailabilityReduction",
     "net_age_decay",      # Custom parameter!
     "net_halflife",       # Derived quantity
     "alpha_0",
@@ -216,8 +216,8 @@ fit_custom <- fit_ento_model(
 summary_custom <- extract_stan_summary(
   fit_custom,
   pars = c("net_age_decay", "net_halflife",
-           "InitialPostprandialkillingEfficacy",
-           "InitialRepellencyRate",
+           "PostprandialKilling",
+           "HostAvailabilityReduction",
            "KillingDuringHostSeeking")
 )
 
@@ -238,9 +238,9 @@ Here's how to create a model with a different outcome structure (e.g., binary ou
 // Binary outcome model: alive vs dead
 data {
   int<lower=0> N;
-  int<lower=0> n_alive[N];    // Number alive
-  int<lower=0> n_total[N];    // Total mosquitoes
-  int treat[N];
+  array[N] int<lower=0> n_alive;    // Number alive
+  array[N] int<lower=0> n_total;    // Total mosquitoes
+  array[N] int treat;
   int<lower=0> tr;
 }
 
@@ -294,11 +294,14 @@ fit_binary <- fit_ento_model(
   init = function() {
     list(
       baseline_survival = runif(1, 0.7, 0.9),
-      mortality_effect = runif(1, 0.1, 0.5)
+      # vector of length tr = 1: array() keeps it a vector for Stan
+      mortality_effect = array(runif(1, 0.1, 0.5))
     )
   }
 )
 ```
+
+The extract functions (`extract_stan_summary()`, `extract_stan_posteriors()`) assume treatment vectors of length `tr + 1` with the control first, as in Example 1, and drop the first entry. For a model like this one, with one entry per treatment, use rstan directly, e.g. `print(fit_binary)`.
 
 ## Example 3: Extending Predefined Models
 
@@ -309,7 +312,7 @@ You can also extend the predefined models by copying and modifying them.
 ```{r get-model-path}
 # Find the package's Stan model file
 basic_model_path <- system.file("stan",
-                                "mosq_foraging_mcmc_full_fit_priorpred.stan",
+                                "eht_basic.stan",
                                 package = "AnophelesEntoTrials")
 
 # Read and modify
@@ -362,40 +365,16 @@ prior_pred_data$use_likelihood <- 0
 
 fit_prior <- fit_ento_model(
   data = custom_data,
-  custom_model = "path/to/custom_model.stan",
+  custom_model = "path/to/custom_model_net_age.stan",
   stan_data = prior_pred_data,
   iter = 2000,
   chains = 2
 )
 ```
 
-### 3. Model Comparison
+### 3. Posterior Predictive Checks
 
-Compare custom models with predefined ones:
-
-```{r model-comparison}
-# Fit basic model
-fit_basic <- fit_ento_model(
-  data = custom_data[, c("UA", "UD", "FA", "FD", "treatment")],
-  model_type = "basic"
-)
-
-# Fit custom model
-fit_custom <- fit_ento_model(
-  data = custom_data,
-  custom_model = "path/to/custom_model.stan",
-  stan_data = custom_stan_data,
-  pars = c("InitialPostprandialkillingEfficacy",
-           "KillingDuringHostSeeking",
-           "InitialRepellencyRate")
-)
-
-# Compare using LOO-CV (requires loo package)
-library(loo)
-loo_basic <- loo(fit_basic)
-loo_custom <- loo(fit_custom)
-loo_compare(loo_basic, loo_custom)
-```
+To use `posterior_predictive_check()` with a custom model, add replicated data `y_rep` to its generated quantities, as in the basic model (`system.file("stan", "eht_basic.stan", package = "AnophelesEntoTrials")`), and fit with `save_y_rep = TRUE`.
 
 ## Troubleshooting Custom Models
 
@@ -411,7 +390,7 @@ n_treat <- length(unique(custom_data$treatment))
 init_fn <- function() {
   list(
     # Vector parameters need length = n_treat
-    InitialPostprandialkillingEfficacy = runif(n_treat, 0.1, 0.9)
+    PostprandialKilling = runif(n_treat, 0.1, 0.9)
   )
 }
 ```
@@ -425,7 +404,7 @@ stan_data$y <- matrix(as.integer(stan_data$y), ncol = 4)
 stan_data$treat <- as.integer(stan_data$treat)
 ```
 
-3. **Missing generated quantities**: Add them to pars
+3. **Missing generated quantities**: If you specify `pars`, include them
 
 ```{r include-generated}
 fit <- fit_ento_model(

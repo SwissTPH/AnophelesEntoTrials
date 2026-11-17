@@ -1,11 +1,7 @@
-#' Data Import Module for AnophelesInterventions
-#'
-#' Functions to import entomological hut trial data from multiple file formats
-#' (CSV, Excel) with automatic format detection and preprocessing.
-#'
-#' @name data_import
-#' @docType _PACKAGE
-NULL
+# Data Import Module for AnophelesEntoTrials
+#
+# Functions to import entomological hut trial data from multiple file formats
+# (CSV, Excel) with automatic format detection and preprocessing.
 
 #' Check file integrity and required columns
 #'
@@ -99,13 +95,22 @@ check_file_integrity <- function(file_path,
 #'
 #' @param file_path Character. Path to the data file.
 #' @param required_vars Character vector. Required columns to check.
-#' @param treatment_var Character. Name of the treatment variable.
+#'   \code{"treatment"} is replaced by \code{treatment_var}, which is always
+#'   required.
+#' @param treatment_var Character. Name of the treatment column in the file
+#'   (case-insensitive). It is renamed to \code{treatment}, the name used by
+#'   \code{\link{format_eht_data}} and the model functions.
+#' @param product_var Character or NULL. Name of the column with the vector
+#'   control product names (case-insensitive). If given, it is required and
+#'   renamed to \code{vector_control_product}, which the extract functions use
+#'   to label results. If NULL (default), no product column is required.
 #' @param quiet Logical. If FALSE, print import status.
 #'
 #' @return A tibble with standardized column names and data types.
-#'   - Endpoints (UA, UD, FA, FD) are numeric.
-#'   - Treatment variable: factor (with levels sorted
-#'   alphabetically, control group as reference)
+#'   - Endpoints (ua, ud, fa, fd) are numeric.
+#'   - Treatment variable: renamed to \code{treatment}, values preserved as-is
+#'   - Product variable (if \code{product_var} is given): renamed to
+#'     \code{vector_control_product}, values preserved as-is
 #'   - Other variables: preserved as-is
 #'
 #' @details
@@ -115,6 +120,9 @@ check_file_integrity <- function(file_path,
 #'   \item Reads data with appropriate reader function
 #'   \item Converts to tibble format
 #'   \item Standardizes column names to lowercase
+#'   \item Renames the treatment column to \code{treatment}
+#'   \item Renames the product column to \code{vector_control_product}
+#'     (if \code{product_var} is given)
 #'   \item Coerces endpoints to numeric
 #'   \item Returns as \code{tibble}
 #' }
@@ -126,13 +134,25 @@ check_file_integrity <- function(file_path,
 #'
 #' # Import Excel file
 #' data <- import_ento_data("trial_data.xlsx")
+#'
+#' # Treatment stored in a column called "Intervention"
+#' data <- import_ento_data("trial_data.csv", treatment_var = "Intervention")
+#'
+#' # Treatment codes in "arm", product names in "net_name"
+#' data <- import_ento_data("trial_data.csv",
+#'   treatment_var = "arm", product_var = "net_name")
 #' }
 #'
 #' @export
 import_ento_data <- function(file_path,
                             required_vars = c("UA", "UD", "FA", "FD", "treatment"),
                             treatment_var = "treatment",
+                            product_var = NULL,
                             quiet = FALSE) {
+
+  # The treatment (and product) columns are checked under the names given
+  required_vars <- unique(c(required_vars[tolower(required_vars) != "treatment"],
+                            treatment_var, product_var))
 
   # Validate file
   file_format <- check_file_integrity(file_path, required_vars, verbose = !quiet)
@@ -154,16 +174,10 @@ import_ento_data <- function(file_path,
   # Clean names
   names(data) <- tolower(names(data))
 
-  # Ensure Treatment variable
-  if (!treatment_var %in% names(data)) {
-    # Try to find treatment variable with different case
-    possible_names <- names(data)[tolower(names(data)) == tolower(treatment_var)]
-    if (length(possible_names) > 0) {
-      names(data)[names(data) == possible_names[1]] <- treatment_var
-    } else {
-      stop("Treatment variable '", treatment_var, "' not found in data. Available columns: ",
-           paste(names(data), collapse = ", "), call. = FALSE)
-    }
+  # Rename the treatment and product variables to their standard names
+  data <- rename_import_column(data, treatment_var, "treatment")
+  if (!is.null(product_var)) {
+    data <- rename_import_column(data, product_var, "vector_control_product")
   }
 
   # Convert endpoints to numeric
@@ -177,10 +191,36 @@ import_ento_data <- function(file_path,
 
   if (!quiet) {
     cli::cli_alert_success("Data imported successfully")
-    cli::cli_alert_info("Dimensions: {nrow(data)} rows × {ncol(data)} columns")
+    cli::cli_alert_info("Dimensions: {nrow(data)} rows \u00d7 {ncol(data)} columns")
   }
 
   return(data)
+}
+
+#' Rename an imported column to its standard name
+#'
+#' Used by \code{\link{import_ento_data}} to rename the user's treatment and
+#' product columns. Column names are expected to be lowercase already.
+#'
+#' @param data Data frame with lowercase column names.
+#' @param from Character. Name of the column in the file (case-insensitive).
+#' @param to Character. Standard column name.
+#'
+#' @return \code{data} with the column renamed.
+#'
+#' @keywords internal
+rename_import_column <- function(data, from, to) {
+  idx <- which(names(data) == tolower(from))
+  if (length(idx) == 0) {
+    stop("Column '", from, "' not found in data. Available columns: ",
+         paste(names(data), collapse = ", "), call. = FALSE)
+  }
+  if (tolower(from) != to && to %in% names(data)) {
+    stop("Cannot rename '", from, "' to '", to, "': the data already ",
+         "has a '", to, "' column.", call. = FALSE)
+  }
+  names(data)[idx[1]] <- to
+  data
 }
 
 #' Format Variable Names for Entomological Data
@@ -338,18 +378,28 @@ standardize_column_names <- function(data, mapping = NULL) {
 #'
 #' Transforms raw EHT data into standardized format required for analysis.
 #' Handles column renaming, derived variable calculation, and type coercion.
+#' Stops if a treatment code has more than one vector_control_product, since
+#' the extract functions would then duplicate rows when labelling results.
+#' The same product may appear under several codes (e.g. washed and unwashed).
 #'
 #' @param data Data frame or tibble. Raw EHT data.
 #' @param calculate_derived Logical. If TRUE, calculate fed, dead, total columns.
 #' @param coerce_types Logical. If TRUE, coerce columns to appropriate types.
 #' @param control_value Value that identifies the control group in the treatment
 #'   column. If NULL, attempts to detect automatically (looks for 0 or "control").
+#'   Numeric treatment columns are only re-encoded when \code{control_value} is
+#'   given (e.g. \code{control_value = 1} for data coded 1, 2, 3).
+#' @param mapping List. Custom column name mapping passed to
+#'   \code{\link{standardize_column_names}}, e.g.
+#'   \code{list(UA = "alive", FA = "alivefed")}. Each element is named with
+#'   the standard column name and contains the source name(s) in the data.
 #'
 #' @return Formatted tibble with standardized structure:
 #'   \itemize{
 #'     \item Endpoints (UA, UD, FA, FD) as numeric
 #'     \item treatment as integer (0 = control, 1+ = treatments)
-#'     \item vector_control_product as character (if present)
+#'     \item vector_control_product as character (if present; otherwise
+#'       created from text treatment labels before they are encoded)
 #'     \item Derived variables: fed, dead, total (if calculate_derived = TRUE)
 #'   }
 #'
@@ -360,16 +410,21 @@ standardize_column_names <- function(data, mapping = NULL) {
 #'
 #' # Specify control group
 #' data_formatted <- format_eht_data(raw_data, control_value = "untreated")
+#'
+#' # Map non-standard column names
+#' data_formatted <- format_eht_data(raw_data,
+#'   mapping = list(UA = "alive", UD = "dead", FA = "alivefed", FD = "deadfed"))
 #' }
 #'
 #' @export
 format_eht_data <- function(data,
                             calculate_derived = TRUE,
                             coerce_types = TRUE,
-                            control_value = NULL) {
+                            control_value = NULL,
+                            mapping = NULL) {
 
   # Standardize column names first
-  data <- standardize_column_names(data)
+  data <- standardize_column_names(data, mapping = mapping)
 
   # Define required endpoints
   required_endpoints <- c("UA", "UD", "FA", "FD")
@@ -392,9 +447,16 @@ format_eht_data <- function(data,
 
   # Ensure treatment column exists and is properly encoded
   if ("treatment" %in% names(data)) {
-    # Convert treatment to numeric encoding
-    if (!is.numeric(data$treatment)) {
+    # Convert treatment to numeric encoding (numeric columns only if a
+    # control value is given, otherwise they are assumed to be coded already)
+    if (!is.numeric(data$treatment) || !is.null(control_value)) {
       unique_treats <- unique(data$treatment)
+
+      if (!is.null(control_value) && !control_value %in% unique_treats) {
+        stop("control_value '", control_value, "' not found in treatment column. ",
+             "Available values: ", paste(unique_treats, collapse = ", "),
+             call. = FALSE)
+      }
 
       # Detect control value
       if (is.null(control_value)) {
@@ -410,9 +472,32 @@ format_eht_data <- function(data,
         }
       }
 
+      # Keep text labels as product names, so they are not lost by encoding
+      if (!is.numeric(data$treatment) &&
+          !"vector_control_product" %in% names(data)) {
+        data$vector_control_product <- as.character(data$treatment)
+      }
+
       # Create numeric encoding with control = 0
       treat_levels <- c(control_value, setdiff(unique_treats, control_value))
-      data$treatment <- match(data$treatment, treat_levels) - 1
+      data$treatment <- match(data$treatment, treat_levels) - 1L
+    }
+  }
+
+  # Each treatment code must have a single product name, otherwise labelling
+  # the results joins several names to one code and duplicates rows
+  if (all(c("treatment", "vector_control_product") %in% names(data))) {
+    pairs <- unique(data[, c("treatment", "vector_control_product")])
+    dup_codes <- unique(pairs$treatment[duplicated(pairs$treatment)])
+
+    if (length(dup_codes) > 0) {
+      details <- vapply(dup_codes, function(code) {
+        products <- pairs$vector_control_product[pairs$treatment %in% code]
+        paste0(code, " (", paste(products, collapse = ", "), ")")
+      }, character(1))
+      stop("Each treatment must have a single vector_control_product. ",
+           "Treatment(s) with several products: ",
+           paste(details, collapse = "; "), call. = FALSE)
     }
   }
 

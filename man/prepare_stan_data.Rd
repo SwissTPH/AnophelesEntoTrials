@@ -8,7 +8,8 @@ prepare_stan_data(data, use_likelihood = 1)
 }
 \arguments{
 \item{data}{Formatted EHT data frame. Can have uppercase (UA, UD, FA, FD)
-or lowercase (ua, ud, fa, fd) endpoint columns.}
+or lowercase (ua, ud, fa, fd) endpoint columns. Treatment must be coded
+0 (control), 1, ..., tr (see \code{\link{format_eht_data}}).}
 
 \item{use_likelihood}{Integer. 1 for normal fitting (default),
 0 for prior predictive checks.}

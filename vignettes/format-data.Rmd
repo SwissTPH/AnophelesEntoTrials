@@ -26,13 +26,13 @@ Entomological hut trial (EHT) data often comes from various sources with inconsi
 - Different cases (e.g., `Treatment`, `treatment`, `TREATMENT`)
 - Different treatment encodings (e.g., character labels vs. numeric codes)
 
-The `format_eht_data()` function standartizes this data inconsistencies.
+The `format_eht_data()` function standardizes these data inconsistencies.
 
 ## What does format_eht_data() function do?
 
 1. **Standardizes column names**: Maps common variations to standard names (UA, UD, FA, FD, treatment, etc.)
 2. **Coerces data types**: Converts endpoints to numeric
-3. **Encodes treatments**: Converts treatment labels to numeric encoding (0 = control, 1+ = treatments)
+3. **Encodes treatments**: Converts treatment labels to numeric encoding (0 = control, 1+ = treatments), keeping the labels in `vector_control_product` to label the results
 4. **Calculates variables**: Adds `fed`, `dead`, and `total` columns
 
 ## Example
@@ -79,8 +79,21 @@ The `standardize_column_names()` function (called internally) recognizes many co
 | FA | `fedalive`, `F.alive`, `f_alive`, `fed_alive`, `gafedalive24` |
 | FD | `feddead`, `F.dead`, `f_dead`, `fed_dead`, `gafeddead24` |
 | treatment | `treat`, `nettype`, `treatment_type` |
-| vector_control_product | `insecticide_name`, `insecticide`, `net_type`, `lntype` |
+| vector_control_product | `insecticide_name`, `insecticide`, `net_type`, `treatment_name`, `ingredient`, `lntype` |
 | wash_status | `washed`, `condition`, `wash` |
+
+Other names can be mapped with the `mapping` argument (standard name = name in the data):
+
+```{r custom-names}
+custom_data <- data.frame(
+  alive = c(30, 15), dead = c(2, 10), alivefed = c(15, 8), deadfed = c(1, 9),
+  arm = c("Control", "IG2")
+)
+
+format_eht_data(custom_data, control_value = "Control",
+                mapping = list(UA = "alive", UD = "dead", FA = "alivefed",
+                               FD = "deadfed", treatment = "arm"))
+```
 
 ## Specifying the control group
 
@@ -88,7 +101,7 @@ By default, `format_eht_data()` attempts to auto-detect the control group by loo
 1. A treatment value of `0`
 2. A treatment label containing "control" (case-insensitive)
 
-If neither is found, it uses the first unique value and issues a warning. You can explicitly specify the control:
+If neither is found, it uses the first unique value and issues a warning. You can explicitly specify the control (also for numeric codes, e.g. `control_value = 1` for data coded 1, 2, 3):
 
 ```{r specify-control}
 # Data with non-obvious control labeling
@@ -102,8 +115,28 @@ data_odd_labels <- data.frame(
 
 # Explicitly specify control
 formatted <- format_eht_data(data_odd_labels, control_value = "Untreated_Net")
-print(formatted[, c("treatment", "UA", "UD", "FA", "FD")])
+print(formatted[, c("treatment", "vector_control_product", "UA", "UD", "FA", "FD")])
 ```
+
+Each treatment must have a single product name in `vector_control_product`; otherwise `format_eht_data()` stops, as the results could not be labelled.
+
+## Washed and unwashed nets
+
+To fit washed and unwashed nets as separate arms, combine the net and its wash status into the treatment label before formatting:
+
+```{r washed-unwashed}
+wash_data <- data.frame(
+  UA = c(30, 15, 20), UD = c(2, 10, 6), FA = c(15, 8, 11), FD = c(1, 9, 5),
+  net = c("Control", "IG2", "IG2"),
+  wash = c("unwashed", "unwashed", "washed")
+)
+wash_data$treatment <- ifelse(wash_data$net == "Control", "Control",
+                              paste0(wash_data$net, " (", wash_data$wash, ")"))
+
+format_eht_data(wash_data, control_value = "Control")[, c("treatment", "vector_control_product")]
+```
+
+All arms then share the control arm, so they should come from the same trial.
 
 ## Skipping Derived Variables
 
@@ -121,6 +154,9 @@ names(minimal_format)
 ```{r pipeline-example, eval = FALSE}
 # 1. Import raw data
 raw_data <- import_ento_data("my_trial_data.csv")
+# or, if the treatment and product names are in other columns:
+# raw_data <- import_ento_data("my_trial_data.csv",
+#                              treatment_var = "arm", product_var = "net_name")
 
 # 2. Format the data
 formatted_data <- format_eht_data(raw_data, control_value = "Control")
