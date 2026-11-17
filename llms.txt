@@ -1,0 +1,111 @@
+# AnophelesEntoTrials
+
+AnophelesEntoTrials estimates the entomological efficacy of malaria
+vector control interventions from entomological trials. It fits Bayesian
+models of the mosquito feeding cycle to the data with Stan, to estimate
+intervention effects such as the reduction in host availability,
+pre-prandial killing and post-prandial killing.
+
+The package provides two predefined models:
+
+| Model | `model_type` | Experimental design | Reference |
+|----|----|----|----|
+| Basic model | `"basic"` | Experimental hut trials (EHT) | Champagne et al. (2025) |
+| Semifield model | `"semifield"` | Matched semifield experiments with a spatial repellent | Denz et al. (2021) |
+
+Custom Stan models can also be fitted with the same workflow.
+
+## Installation
+
+``` r
+
+install.packages("devtools")
+
+# Install the package from GitHub
+devtools::install_github("SwissTPH/AnophelesEntoTrials", build_vignettes = TRUE)
+```
+
+The models are compiled with rstan, which requires a C++ toolchain
+(Rtools on Windows).
+
+## Getting started
+
+``` r
+
+library(AnophelesEntoTrials)
+
+# Simulated hut trial data (or import your own with import_ento_data())
+eht_data <- format_eht_data(simulate_eht_data(seed = 42))
+
+fit <- fit_ento_model(eht_data, model_type = "basic", seed = 123)
+extract_stan_summary(fit, data = eht_data)
+```
+
+The vignettes describe the workflow in detail:
+
+- [`vignette("format-data")`](https://swisstph.github.io/AnophelesEntoTrials/articles/format-data.md):
+  importing and formatting entomological data
+- [`vignette("workflow-predefined-models")`](https://swisstph.github.io/AnophelesEntoTrials/articles/workflow-predefined-models.md):
+  the predefined models, their mathematical description, fitting,
+  results and posterior predictive checks
+- [`vignette("workflow-custom-models")`](https://swisstph.github.io/AnophelesEntoTrials/articles/workflow-custom-models.md):
+  fitting your own Stan models
+
+## References
+
+- Champagne C, Lemant J, et al. (2025). Cascades of effectiveness of
+  next-generation insecticide-treated nets against malaria, from
+  entomological trials to real-life conditions. *Nature Communications*
+  16:11162. <https://doi.org/10.1038/s41467-025-66130-y>
+- Denz A, Njoroge MM, et al. (2021). Predicting the impact of outdoor
+  vector control interventions on malaria transmission intensity from
+  semi-field studies. *Parasites & Vectors* 14:64.
+  <https://doi.org/10.1186/s13071-020-04560-x>
+
+# Package index
+
+## All functions
+
+- [`check_file_integrity()`](https://swisstph.github.io/AnophelesEntoTrials/reference/check_file_integrity.md)
+  : Check file integrity and required columns
+- [`extract_posteriorMax()`](https://swisstph.github.io/AnophelesEntoTrials/reference/extract_posteriorMax.md)
+  : Extract posteriorMax estimates
+- [`extract_stan_posteriors()`](https://swisstph.github.io/AnophelesEntoTrials/reference/extract_stan_posteriors.md)
+  : Extract posterior samples from Stan fit
+- [`extract_stan_summary()`](https://swisstph.github.io/AnophelesEntoTrials/reference/extract_stan_summary.md)
+  : Extract summary statistics from Stan fit
+- [`fit_ento_model()`](https://swisstph.github.io/AnophelesEntoTrials/reference/fit_ento_model.md)
+  : Fit Bayesian Ento-Trials model
+- [`format_eht_data()`](https://swisstph.github.io/AnophelesEntoTrials/reference/format_eht_data.md)
+  : Format EHT data to standard structure
+- [`generate_inits_basic()`](https://swisstph.github.io/AnophelesEntoTrials/reference/generate_inits_basic.md)
+  : Generate initial values for basic Stan model
+- [`generate_inits_semifield()`](https://swisstph.github.io/AnophelesEntoTrials/reference/generate_inits_semifield.md)
+  : Generate initial values for semifield model
+- [`import_ento_data()`](https://swisstph.github.io/AnophelesEntoTrials/reference/import_ento_data.md)
+  : Import entomological hut trial data
+- [`list_available_models()`](https://swisstph.github.io/AnophelesEntoTrials/reference/list_available_models.md)
+  : List available predefined Stan models
+- [`plot_posterior_predictive()`](https://swisstph.github.io/AnophelesEntoTrials/reference/plot_posterior_predictive.md)
+  : Plot a posterior predictive check
+- [`posterior_predictive_check()`](https://swisstph.github.io/AnophelesEntoTrials/reference/posterior_predictive_check.md)
+  : Posterior predictive check
+- [`prepare_stan_data()`](https://swisstph.github.io/AnophelesEntoTrials/reference/prepare_stan_data.md)
+  : Prepare data for Stan
+- [`prepare_stan_data_semifield()`](https://swisstph.github.io/AnophelesEntoTrials/reference/prepare_stan_data_semifield.md)
+  : Prepare data for semifield Stan model
+- [`simulate_eht_data()`](https://swisstph.github.io/AnophelesEntoTrials/reference/simulate_eht_data.md)
+  : Simulate entomological hut trial data from the basic model
+- [`standardize_column_names()`](https://swisstph.github.io/AnophelesEntoTrials/reference/standardize_column_names.md)
+  : Standardize column names to expected EHT format
+
+# Articles
+
+### All vignettes
+
+- [Formatting entomological data with
+  format_eht_data()](https://swisstph.github.io/AnophelesEntoTrials/articles/format-data.md):
+- [Workflow: Using Custom Stan
+  Models](https://swisstph.github.io/AnophelesEntoTrials/articles/workflow-custom-models.md):
+- [Workflow: Using Predefined
+  Models](https://swisstph.github.io/AnophelesEntoTrials/articles/workflow-predefined-models.md):

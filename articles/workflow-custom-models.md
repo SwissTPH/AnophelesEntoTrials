@@ -1,0 +1,441 @@
+# Workflow: Using Custom Stan Models
+
+This vignette demonstrates how to use custom Stan models with the
+`AnophelesEntoTrials` package. This is useful when you need:
+
+- Different model structure (e.g., additional covariates)
+- Different priors
+- Custom parameters
+- Novel outcome distributions
+
+## Overview
+
+The package supports custom models through four mechanisms:
+
+1.  **Custom Stan file**: Provide path to your own `.stan` file
+2.  **Custom Stan data**: Provide your own data list matching your
+    model’s requirements
+3.  **Custom parameters**: Specify which parameters to extract
+4.  **Custom initialization**: Provide your own initialization function
+
+## Example 1: Simple Custom Model with Additional Parameter
+
+Let’s create a custom model that includes an additional parameter for
+net age effect.
+
+### Step 1: Write Custom Stan Model
+
+Create a file `custom_model_net_age.stan`:
+
+``` stan
+// Custom EHT model with net age covariate
+functions {
+  real P_UA(real alpha, real mu) {
+    return exp(-(alpha + mu));
+  }
+  real P_F(real alpha, real mu) {
+    return (1 - P_UA(alpha, mu)) * alpha / (alpha + mu);
+  }
+  real P_UD(real alpha, real mu) {
+    return (1 - P_UA(alpha, mu)) * mu / (alpha + mu);
+  }
+  real P_FA(real alpha, real mu, real PC) {
+    return P_F(alpha, mu) * PC;
+  }
+  real P_FD(real alpha, real mu, real PC) {
+    return P_F(alpha, mu) * (1 - PC);
+  }
+}
+
+data {
+  int<lower=0> N;                // number of observations
+  int<lower=0> tr;               // number of treatments
+  array[N] int treat;            // treatment index
+  array[N, 4] int<lower=0> y;    // outcomes (UA, UD, FA, FD)
+  vector[N] net_age;             // net age in months (NEW!)
+  int<lower=0, upper=1> use_likelihood;
+}
+
+parameters {
+  vector<lower=0, upper=1>[tr+1] PostprandialKilling;
+  vector<lower=0>[tr+1] KillingDuringHostSeeking;
+  vector<lower=0, upper=1>[tr+1] HostAvailabilityReduction;
+
+  // NEW: Net age decay parameter
+  real<lower=0> net_age_decay;
+
+  real a;
+  real m;
+  real b;
+}
+
+transformed parameters {
+  real<lower=0> alpha_0 = exp(a);
+  real<lower=0> mu_0 = exp(m);
+  real<lower=0, upper=1> pC_0 = inv_logit(b);
+}
+
+model {
+  matrix[4, N] theta;
+
+  // Priors
+  target += uniform_lpdf(PostprandialKilling | 0, 1);
+  target += lognormal_lpdf(1 - HostAvailabilityReduction | 0, 5);
+  target += lognormal_lpdf(KillingDuringHostSeeking | 0, 5);
+
+  // Prior for net age decay (half-normal)
+  target += normal_lpdf(net_age_decay | 0, 0.1) - normal_lccdf(0 | 0, 0.1);
+
+  target += normal_lpdf(a | 0, 6);
+  target += normal_lpdf(m | 0, 6);
+  target += logistic_lpdf(b | 0, 1);
+
+  // Likelihood
+  for (i in 1:N) {
+    // Calculate decay factor based on net age
+    real decay_factor = exp(-net_age_decay * net_age[i]);
+
+    if (treat[i] == 0) {
+      theta[1, i] = P_UA(alpha_0, mu_0);
+      theta[2, i] = P_UD(alpha_0, mu_0);
+      theta[3, i] = P_FA(alpha_0, mu_0, pC_0);
+      theta[4, i] = P_FD(alpha_0, mu_0, pC_0);
+    } else {
+      // Apply efficacy with decay
+      real eff_availability = HostAvailabilityReduction[treat[i]+1] * decay_factor;
+      real eff_killing = KillingDuringHostSeeking[treat[i]+1] * decay_factor;
+      real eff_postprandial = PostprandialKilling[treat[i]+1] * decay_factor;
+
+      real alpha_i = (1 - eff_availability) * alpha_0;
+      real mu_i = mu_0 + eff_killing * alpha_0;
+      real pCi = pC_0 * (1 - eff_postprandial);
+
+      theta[1, i] = P_UA(alpha_i, mu_i);
+      theta[2, i] = P_UD(alpha_i, mu_i);
+      theta[3, i] = P_FA(alpha_i, mu_i, pCi);
+      theta[4, i] = P_FD(alpha_i, mu_i, pCi);
+    }
+
+    if (use_likelihood == 1)
+      target += multinomial_lpmf(y[i, ] | theta[, i]);
+  }
+}
+
+generated quantities {
+  // Compute half-life of net effectiveness
+  real net_halflife = log(2) / net_age_decay;
+
+  // Other derived quantities as needed
+}
+```
+
+### Step 2: Prepare Custom Data
+
+``` r
+
+library(AnophelesEntoTrials)
+
+# Create data with net age
+custom_data <- data.frame(
+  UA = sample(10:50, 100, replace = TRUE),
+  UD = sample(0:10, 100, replace = TRUE),
+  FA = sample(5:30, 100, replace = TRUE),
+  FD = sample(0:5, 100, replace = TRUE),
+  treatment = rep(c(0, 1), each = 50),
+  net_age = c(rep(0, 50), runif(50, 0, 36))  # Net age in months
+)
+
+# Prepare Stan data manually
+custom_stan_data <- list(
+  N = nrow(custom_data),
+  tr = length(unique(custom_data$treatment)) - 1,
+  treat = as.integer(custom_data$treatment),
+  y = as.matrix(custom_data[, c("UA", "UD", "FA", "FD")]),
+  net_age = custom_data$net_age,  # Custom variable!
+  use_likelihood = 1
+)
+```
+
+### Step 3: Define Custom Initialization
+
+``` r
+
+# Custom initialization function
+custom_init <- function() {
+  list(
+    PostprandialKilling = runif(2, 0.2, 0.8),
+    KillingDuringHostSeeking = runif(2, 0.1, 0.5),
+    HostAvailabilityReduction = runif(2, 0.2, 0.8),
+    net_age_decay = runif(1, 0.01, 0.05),  # Custom parameter init
+    a = rnorm(1, -2, 0.5),
+    m = rnorm(1, -2, 0.5),
+    b = rnorm(1, 0, 1)
+  )
+}
+```
+
+### Step 4: Fit Custom Model
+
+``` r
+
+# Fit with custom model
+# (pars is optional: by default, all quantities of a custom model are saved)
+fit_custom <- fit_ento_model(
+  data = custom_data,
+  custom_model = "path/to/custom_model_net_age.stan",
+  stan_data = custom_stan_data,
+  pars = c(
+    "PostprandialKilling",
+    "KillingDuringHostSeeking",
+    "HostAvailabilityReduction",
+    "net_age_decay",      # Custom parameter!
+    "net_halflife",       # Derived quantity
+    "alpha_0",
+    "mu_0"
+  ),
+  init = custom_init,
+  iter = 6000,
+  warmup = 3000,
+  chains = 3,
+  seed = 123
+)
+```
+
+### Step 5: Extract Custom Results
+
+``` r
+
+# Extract summary for all parameters including custom ones
+summary_custom <- extract_stan_summary(
+  fit_custom,
+  pars = c("net_age_decay", "net_halflife",
+           "PostprandialKilling",
+           "HostAvailabilityReduction",
+           "KillingDuringHostSeeking")
+)
+
+print(summary_custom)
+
+# Or extract all parameters directly from rstan
+library(rstan)
+print(fit_custom, pars = c("net_age_decay", "net_halflife"))
+```
+
+## Example 2: Model with Different Outcome Structure
+
+Here’s how to create a model with a different outcome structure (e.g.,
+binary outcomes).
+
+### Custom Binary Outcome Model
+
+``` stan
+// Binary outcome model: alive vs dead
+data {
+  int<lower=0> N;
+  array[N] int<lower=0> n_alive;    // Number alive
+  array[N] int<lower=0> n_total;    // Total mosquitoes
+  array[N] int treat;
+  int<lower=0> tr;
+}
+
+parameters {
+  real<lower=0, upper=1> baseline_survival;
+  vector<lower=0, upper=1>[tr] mortality_effect;
+}
+
+model {
+  // Priors
+  baseline_survival ~ beta(5, 2);
+  mortality_effect ~ beta(2, 2);
+
+  // Likelihood
+  for (i in 1:N) {
+    real p_alive;
+    if (treat[i] == 0) {
+      p_alive = baseline_survival;
+    } else {
+      p_alive = baseline_survival * (1 - mortality_effect[treat[i]]);
+    }
+    n_alive[i] ~ binomial(n_total[i], p_alive);
+  }
+}
+```
+
+### Fitting the Binary Model
+
+``` r
+
+# Prepare data for binary model
+binary_data <- data.frame(
+  n_alive = c(rep(45, 50), rep(30, 50)),
+  n_total = rep(50, 100),
+  treatment = rep(c(0, 1), each = 50)
+)
+
+binary_stan_data <- list(
+  N = nrow(binary_data),
+  n_alive = binary_data$n_alive,
+  n_total = binary_data$n_total,
+  treat = as.integer(binary_data$treatment),
+  tr = 1
+)
+
+# Fit
+fit_binary <- fit_ento_model(
+  data = binary_data,
+  custom_model = "path/to/binary_model.stan",
+  stan_data = binary_stan_data,
+  pars = c("baseline_survival", "mortality_effect"),
+  init = function() {
+    list(
+      baseline_survival = runif(1, 0.7, 0.9),
+      # vector of length tr = 1: array() keeps it a vector for Stan
+      mortality_effect = array(runif(1, 0.1, 0.5))
+    )
+  }
+)
+```
+
+The extract functions
+([`extract_stan_summary()`](https://swisstph.github.io/AnophelesEntoTrials/reference/extract_stan_summary.md),
+[`extract_stan_posteriors()`](https://swisstph.github.io/AnophelesEntoTrials/reference/extract_stan_posteriors.md))
+assume treatment vectors of length `tr + 1` with the control first, as
+in Example 1, and drop the first entry. For a model like this one, with
+one entry per treatment, use rstan directly, e.g. `print(fit_binary)`.
+
+## Example 3: Extending Predefined Models
+
+You can also extend the predefined models by copying and modifying them.
+
+### Get Path to Predefined Model
+
+``` r
+
+# Find the package's Stan model file
+basic_model_path <- system.file("stan",
+                                "eht_basic.stan",
+                                package = "AnophelesEntoTrials")
+
+# Read and modify
+model_code <- readLines(basic_model_path)
+head(model_code, 30)
+
+# Copy to your working directory for modification
+file.copy(basic_model_path, "my_modified_model.stan")
+```
+
+## Best Practices for Custom Models
+
+### 1. Data Validation
+
+Always validate your custom data matches model requirements:
+
+``` r
+
+validate_custom_data <- function(stan_data, required_vars) {
+  missing <- setdiff(required_vars, names(stan_data))
+  if (length(missing) > 0) {
+    stop("Missing required variables: ", paste(missing, collapse = ", "))
+  }
+
+  # Check dimensions
+  if ("y" %in% names(stan_data)) {
+    if (nrow(stan_data$y) != stan_data$N) {
+      stop("y matrix rows must equal N")
+    }
+  }
+
+  message("Data validation passed!")
+  invisible(TRUE)
+}
+
+# Use before fitting
+validate_custom_data(
+  custom_stan_data,
+  required_vars = c("N", "tr", "treat", "y", "net_age", "use_likelihood")
+)
+```
+
+### 2. Prior Predictive Checks
+
+Test your model with prior predictive checks before fitting real data:
+
+``` r
+
+# Set use_likelihood = 0 for prior predictive
+prior_pred_data <- custom_stan_data
+prior_pred_data$use_likelihood <- 0
+
+fit_prior <- fit_ento_model(
+  data = custom_data,
+  custom_model = "path/to/custom_model_net_age.stan",
+  stan_data = prior_pred_data,
+  iter = 2000,
+  chains = 2
+)
+```
+
+### 3. Posterior Predictive Checks
+
+To use
+[`posterior_predictive_check()`](https://swisstph.github.io/AnophelesEntoTrials/reference/posterior_predictive_check.md)
+with a custom model, add replicated data `y_rep` to its generated
+quantities, as in the basic model
+(`system.file("stan", "eht_basic.stan", package = "AnophelesEntoTrials")`),
+and fit with `save_y_rep = TRUE`.
+
+## Troubleshooting Custom Models
+
+### Common Issues
+
+1.  **Parameter dimension mismatch**: Ensure initialization returns
+    vectors of correct length
+
+``` r
+
+# Check number of treatments
+n_treat <- length(unique(custom_data$treatment))
+
+# Initialization must match
+init_fn <- function() {
+  list(
+    # Vector parameters need length = n_treat
+    PostprandialKilling = runif(n_treat, 0.1, 0.9)
+  )
+}
+```
+
+2.  **Data type errors**: Stan is strict about integer vs real
+
+``` r
+
+# Ensure integers where needed
+stan_data$N <- as.integer(stan_data$N)
+stan_data$y <- matrix(as.integer(stan_data$y), ncol = 4)
+stan_data$treat <- as.integer(stan_data$treat)
+```
+
+3.  **Missing generated quantities**: If you specify `pars`, include
+    them
+
+``` r
+
+fit <- fit_ento_model(
+  # ... other args
+  pars = c("alpha_0", "mu_0", "net_halflife")  # Include derived quantities
+)
+```
+
+## Summary
+
+Key steps for custom models:
+
+1.  Write your Stan model file
+2.  Prepare matching `stan_data` list
+3.  Define custom `init` function
+4.  Specify `pars` to extract
+5.  Validate and test before full fitting
+
+See
+[`?fit_ento_model`](https://swisstph.github.io/AnophelesEntoTrials/reference/fit_ento_model.md)
+for all available options.
